@@ -2,6 +2,7 @@
 .DS_Store
 .idea/
 .vscode/
+Thumbs.db
 
 # Java/Spring
 backend/target/
@@ -15,3 +16,6 @@ frontend/dist/
 # Env
 .env
 **/*.env
+
+# Java / Maven
+backend/target/
