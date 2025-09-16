@@ -1,4 +1,4 @@
-package com.lostfound.capstonebackend.lostitem;
+package com.lostfound.capstonebackend.domain.lostitem;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
