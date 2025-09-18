@@ -1,62 +1,21 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
+import { Routes, Route, Navigate } from "react-router-dom";
+import Layout from "./components/Layout.jsx";
 
-function App() {
-  const [items, setItems] = useState([]);
-  const [title, setTitle] = useState("");
-  const [place, setPlace] = useState("");
+import Home from "./pages/Home.jsx";
+import Login from "./pages/Login.jsx";
+import Signup from "./pages/Register.jsx"; // 이름 맞춰 사용
+import NotFound from "./pages/NotFound.jsx";
 
-  const loadItems = () => {
-    axios
-      .get("http://localhost:8080/api/lost-items")
-      .then((res) => setItems(res.data));
-  };
-
-  useEffect(() => {
-    loadItems();
-  }, []);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    axios
-      .post("http://localhost:8080/api/lost-items", {
-        title,
-        place,
-      })
-      .then(() => {
-        setTitle("");
-        setPlace("");
-        loadItems(); // 등록 후 목록 갱신
-      });
-  };
-
+export default function App() {
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>Lost & Found</h1>
-
-      <form onSubmit={handleSubmit} style={{ marginBottom: "20px" }}>
-        <input
-          placeholder="분실물 이름"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <input
-          placeholder="장소"
-          value={place}
-          onChange={(e) => setPlace(e.target.value)}
-        />
-        <button type="submit">등록</button>
-      </form>
-
-      <ul>
-        {items.map((item) => (
-          <li key={item.id}>
-            <b>{item.title}</b> - {item.place} ({item.status})
-          </li>
-        ))}
-      </ul>
-    </div>
+    <Routes>
+      <Route element={<Layout />}>
+        <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route path="/home" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
   );
 }
-
-export default App;
