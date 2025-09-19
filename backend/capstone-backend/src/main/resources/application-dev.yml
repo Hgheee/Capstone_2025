@@ -1,0 +1,32 @@
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update   # 개발 중엔 create-drop → update 로 변경 추천
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false  # 성능 최적화 & Lazy 로딩 문제 방지
+
+  sql:
+    init:
+      mode: always
+
+server:
+  port: ${SERVER_PORT:8081}
+
+# 로깅 레벨
+logging:
+  level:
+    root: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# 디버그 모드 (애플리케이션 전체 상세 로그 필요할 때만 true)
+debug: false

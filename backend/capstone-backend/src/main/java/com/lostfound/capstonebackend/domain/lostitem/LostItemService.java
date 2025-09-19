@@ -3,19 +3,18 @@ package com.lostfound.capstonebackend.domain.lostitem;
 import com.lostfound.capstonebackend.domain.lostitem.dto.LostItemRequest;
 import com.lostfound.capstonebackend.domain.lostitem.dto.LostItemResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class LostItemService {
     private final LostItemRepository repo;
 
-    public List<LostItemResponse> findAll() {
-        return repo.findAll().stream()
-                .map(LostItemResponse::from)
-                .toList();
+    public Page<LostItemResponse> findAll(Pageable pageable) {
+        return repo.findAll(pageable)
+                .map(LostItemResponse::from);
     }
 
     public LostItemResponse create(LostItemRequest req) {
