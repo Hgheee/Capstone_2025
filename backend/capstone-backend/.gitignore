@@ -32,3 +32,41 @@ build/
 
 ### VS Code ###
 .vscode/
+
+
+# Environment & secrets
+.env
+.env.*
+*.env
+env/
+
+# Uploads
+uploads/
+
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IntelliJ / IDEA
+.idea/
+*.iml
+out/
+
+# Maven / Gradle
+target/
+build/
+!.mvn/wrapper/maven-wrapper.jar
+
+# Logs
+*.log
+logs/
+
+# Env / Secrets
+.env
+*.env
+application-*.local.yml
+*.keystore
+
+# Others
+node_modules/

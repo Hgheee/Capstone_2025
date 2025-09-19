@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- 콘솔 출력용 Appender: 메시지 내 민감정보 마스킹 -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>
+                %d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - 
+                %replace(
+                    %replace(
+                        %replace(
+                            %replace(
+                                %replace(
+                                    %replace(
+                                        %replace(%msg){"(?i)(Authorization\\s*[:=]\\s*Bearer\\s+)([^\\s]+)", "$1[MASKED]"}
+                                    ){"([A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+)", "[JWT_MASKED]"}
+                                ){"(?i)(\\\"?(?:password|newPassword|currentPassword|confirmPassword)\\\"?\\s*[:=]\\s*\\\")(.*?)(\\\")", "$1***$3"}
+                            ){"(?i)(token\\\"?\\s*[:=]\\s*\\\")(.*?)(\\\")", "$1***$3"}
+                        ){"(?i)(\\\"?email\\\"?\\s*[:=]\\s*\\\")(.*?@.*?)(\\\")", "$1[EMAIL_MASKED]$3"}
+                    ){"(?i)(\\\"?(?:phone|tel|mobile)\\\"?\\s*[:=]\\s*\\\")(.*?)(\\\")", "$1[PHONE_MASKED]$3"}
+                ){"(?i)(\\\"?name\\\"?\\s*[:=]\\s*\\\")(.*?)(\\\")", "$1***$3"}
+                %n%ex{5}
+            </pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 루트 로거: 운영/개발은 프로파일 yml에서 레벨 제어 -->
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>
