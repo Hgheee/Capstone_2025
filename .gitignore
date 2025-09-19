@@ -4,6 +4,10 @@
 .vscode/
 Thumbs.db
 
+# data
+data/.env
+data/out/
+
 # Java / Spring Boot
 backend/target/
 *.log
