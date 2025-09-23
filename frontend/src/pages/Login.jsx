@@ -1,10 +1,11 @@
-// src/pages/Login.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { authApi } from "../lib/api.js";
+import { authApi } from "../lib/api";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function Login() {
   const nav = useNavigate();
+  const { login: saveUser } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
@@ -17,16 +18,20 @@ export default function Login() {
   const onSubmit = async (e) => {
     e.preventDefault();
     setErr("");
-
     if (!form.email || !form.password) {
       setErr("이메일과 비밀번호를 입력하세요.");
       return;
     }
-
     try {
       setLoading(true);
-      await authApi.login(form);
-      localStorage.setItem("auth:user", JSON.stringify({ email: form.email }));
+      const { data } = await authApi.login(form);
+      // 백엔드 응답 형태에 따라 조정 (예: { token, user: {email, name} } 또는 {email, name})
+      const userPayload = {
+        email: data?.user?.email || form.email,
+        name: data?.user?.name || undefined,
+        token: data?.token || undefined,
+      };
+      saveUser(userPayload);
       alert("로그인 성공!");
       nav("/home");
     } catch (e) {
@@ -39,15 +44,16 @@ export default function Login() {
   };
 
   return (
-    <section className="max-w-sm mx-auto space-y-4">
-      <h2 className="text-xl font-semibold">로그인</h2>
-      <form className="space-y-3" onSubmit={onSubmit}>
+    <section style={{ maxWidth: 420, margin: "0 auto" }}>
+      <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12 }}>
+        로그인
+      </h2>
+      <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
         <input
           name="email"
           placeholder="이메일"
           value={form.email}
           onChange={onChange}
-          className="w-full border rounded px-3 py-2"
         />
         <input
           name="password"
@@ -55,13 +61,12 @@ export default function Login() {
           placeholder="비밀번호"
           value={form.password}
           onChange={onChange}
-          className="w-full border rounded px-3 py-2"
         />
-        <button disabled={loading} className="w-full border rounded px-4 py-2">
+        <button type="submit" disabled={loading}>
           {loading ? "처리 중..." : "로그인"}
         </button>
       </form>
-      {err && <p className="text-red-600 text-sm">{err}</p>}
+      {err && <p style={{ color: "crimson", marginTop: 8 }}>{err}</p>}
     </section>
   );
 }

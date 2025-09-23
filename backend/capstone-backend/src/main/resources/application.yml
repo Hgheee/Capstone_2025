@@ -1,5 +1,4 @@
 spring:
-<<<<<<< HEAD
   config:
     import: optional:file:.env[.properties] # .env 파일 불러오기
 
@@ -22,7 +21,7 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080} # .env에서 지정 가능, 없으면 8080
-=======
+
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
->>>>>>> 38625dc1da00011ee7b0a1a02880c096800be7a8
+JWT_SECRET_KEY: "hogeonhee-jwt-secret-key-20202839"

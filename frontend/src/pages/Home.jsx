@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { lostItemApi } from "../lib/api";
 
 export default function Home() {
   const [items, setItems] = useState([]);
@@ -8,7 +9,7 @@ export default function Home() {
 
   const loadItems = () => {
     axios
-      .get("http://localhost:8080/api/lost-items")
+      .get("http://localhost:8081/api/lost-items")
       .then((res) => setItems(res.data))
       .catch((err) => console.error("불러오기 오류:", err));
   };
@@ -20,7 +21,7 @@ export default function Home() {
   const handleSubmit = (e) => {
     e.preventDefault();
     axios
-      .post("http://localhost:8080/api/lost-items", { title, place })
+      .post("http://localhost:8081/api/lost-items", { title, place })
       .then(() => {
         setTitle("");
         setPlace("");
