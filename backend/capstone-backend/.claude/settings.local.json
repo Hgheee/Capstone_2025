@@ -1,17 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Read(//c/Users/User/.claude/**)",
-      "Read(//c/Users/User/AppData/Roaming/**)",
-      "Bash(claude mcp add context7 -- npx -y @upstash/context7-mcp@latest)",
-      "Bash(mvn:*)",
-      "Bash(./mvnw.cmd clean compile)",
-      "Bash(./mvnw.cmd test)",
-      "Bash(./mvnw.cmd test:*)",
-      "Bash(curl:*)",
-      "Bash(mysql:*)",
-      "Bash(./mvnw.cmd spring-boot:run:*)",
-      "Bash(taskkill:*)"
+      "Bash(./mvnw clean compile)",
+      "Bash(./mvnw clean test)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(./mvnw dependency:check-for-updates)",
+      "Bash(./mvnw test:*)",
+      "Bash(./mvnw clean compile -q)",
+      "Bash(./mvnw dependency:tree:*)",
+      "Bash(timeout:*)",
+      "Bash(claude mcp add:*)",
+      "Bash(./mvnw:*)",
+      "Bash(taskkill:*)",
+      "Bash(claude mcp:*)",
+      "Read(//c/Users/User/Desktop/Capstone_2025/data/**)",
+      "Bash(dir:*)",
+      "mcp__notion__notion-create-pages",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []

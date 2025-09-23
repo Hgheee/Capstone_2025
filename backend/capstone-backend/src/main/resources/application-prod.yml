@@ -17,7 +17,7 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
-debug: false
+debug: true
 
 springdoc:
   api-docs:
@@ -32,3 +32,27 @@ logging:
     org.hibernate.SQL: WARN
     org.hibernate.type.descriptor.sql.BasicBinder: WARN
     com.lostfound.capstonebackend: INFO
+lost112:
+  python:
+    enabled: ${LOST112_PYTHON_ENABLED:false}
+    executable: ${PYTHON_EXECUTABLE:python}
+    script-path: ${LOST112_PYTHON_SCRIPT_PATH:../../data/lost112_collect_and_sync_fast.py}
+    work-dir: ${LOST112_PYTHON_WORK_DIR:../../data}
+    output-dir: ${LOST112_PYTHON_OUTPUT_DIR:../../data/out}
+    env-file: ${LOST112_PYTHON_ENV_FILE:../../data/.env}
+    default-rows: ${LOST112_PYTHON_DEFAULT_ROWS:100}
+    default-max-pages: ${LOST112_PYTHON_DEFAULT_MAX_PAGES:20}
+    default-day-range: ${LOST112_PYTHON_DEFAULT_DAY_RANGE:7}
+    sleep-sec: ${LOST112_PYTHON_SLEEP_SEC:0.3}
+    default-concurrency: ${LOST112_PYTHON_DEFAULT_CONCURRENCY:2}
+    timeout-sec: ${LOST112_PYTHON_TIMEOUT_SEC:120}
+    max-output-chars: ${LOST112_PYTHON_MAX_OUTPUT_CHARS:200000}
+
+
+jwt:
+  secret-key: ${JWT_SECRET_KEY}
+  access-token:
+    expiration: ${JWT_EXPIRATION_TIME:900000}
+  refresh-token:
+    expiration: ${JWT_REFRESH_EXPIRATION_TIME:604800000}
+

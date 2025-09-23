@@ -36,3 +36,11 @@ frontend/yarn.lock
 # Coverage / Test
 coverage/
 *.lcov
+
+
+.claude/
+claudedocs/
+*.md
+*.py
+out/
+temp/
