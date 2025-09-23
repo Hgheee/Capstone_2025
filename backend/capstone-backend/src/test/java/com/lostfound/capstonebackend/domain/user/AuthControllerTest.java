@@ -21,6 +21,8 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
+
+
 import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -294,8 +296,7 @@ class AuthControllerTest {
         verify(userService).getUserByEmail("test@example.com");
         verify(userService).updateUser(eq(1L), any(UserUpdateRequest.class));
         @TestConfiguration
-    static class TestSecurityConfig {
-
+        static class TestSecurityConfig {
         @Bean
         SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
             http
