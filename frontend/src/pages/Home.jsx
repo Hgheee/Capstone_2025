@@ -9,7 +9,7 @@ export default function Home() {
 
   const loadItems = () => {
     axios
-      .get("http://localhost:8080/api/lost-items")
+      .get("http://localhost:8081/api/lost-items")
       .then((res) => setItems(res.data))
       .catch((err) => console.error("불러오기 오류:", err));
   };
