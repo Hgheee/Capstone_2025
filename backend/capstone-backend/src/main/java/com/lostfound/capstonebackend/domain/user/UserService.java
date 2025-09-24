@@ -10,15 +10,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
-
 /**
  * 사용자 관련 비즈니스 로직을 처리하는 서비스 클래스
  * 회원가입, 로그인, 사용자 정보 관리 등의 기능을 제공합니다.
- *
- * @author Capstone Team
- * @version 1.0
- * @since 2025-09-19
  */
 @Service
 @RequiredArgsConstructor
@@ -36,7 +30,6 @@ public class UserService {
      *
      * @param signupRequest 회원가입 요청 정보
      * @return 생성된 사용자 정보 응답
-     * @throws BusinessException 이메일 중복 시 EMAIL_ALREADY_EXISTS 예외
      */
     @Transactional
     public UserResponse signup(SignupRequest signupRequest) {
@@ -54,6 +47,7 @@ public class UserService {
                 .email(signupRequest.getEmail())
                 .password(encodedPassword)
                 .name(signupRequest.getName())
+                .username(signupRequest.getUsername())   // ✅ username 반영
                 .phone(signupRequest.getPhone())
                 .build();
 
@@ -69,7 +63,6 @@ public class UserService {
      *
      * @param loginRequest 로그인 요청 정보
      * @return JWT 토큰과 사용자 정보를 포함한 응답
-     * @throws BusinessException 인증 실패 시 INVALID_CREDENTIALS 예외
      */
     @Transactional
     public JwtTokenResponse login(LoginRequest loginRequest) {
@@ -105,7 +98,6 @@ public class UserService {
      *
      * @param userId 사용자 ID
      * @return 사용자 정보 응답
-     * @throws BusinessException 사용자를 찾을 수 없는 경우 USER_NOT_FOUND 예외
      */
     public UserResponse getUserById(Long userId) {
         log.debug("Retrieving user by ID: {}", userId);
@@ -124,7 +116,6 @@ public class UserService {
      *
      * @param email 사용자 이메일
      * @return 사용자 정보 응답
-     * @throws BusinessException 사용자를 찾을 수 없는 경우 USER_NOT_FOUND 예외
      */
     public UserResponse getUserByEmail(String email) {
         log.debug("Retrieving user by email: {}", email);
@@ -141,10 +132,9 @@ public class UserService {
     /**
      * 사용자 정보 수정
      *
-     * @param userId      수정할 사용자 ID
+     * @param userId        수정할 사용자 ID
      * @param updateRequest 수정 요청 정보
      * @return 수정된 사용자 정보 응답
-     * @throws BusinessException 사용자를 찾을 수 없는 경우 USER_NOT_FOUND 예외
      */
     @Transactional
     public UserResponse updateUser(Long userId, UserUpdateRequest updateRequest) {
@@ -156,8 +146,12 @@ public class UserService {
                     return new BusinessException(ErrorCode.USER_NOT_FOUND);
                 });
 
-        // 사용자 정보 업데이트
-        user.updateUserInfo(updateRequest.getName(), updateRequest.getPhone());
+        // ✅ 이름, 닉네임(username), 전화번호 업데이트
+        user.updateUserInfo(
+                updateRequest.getName(),
+                updateRequest.getUsername(),
+                updateRequest.getPhone()
+        );
         User updatedUser = userRepository.save(user);
 
         log.info("User update completed for ID: {}", userId);
@@ -167,9 +161,8 @@ public class UserService {
     /**
      * 사용자 비밀번호 변경
      *
-     * @param userId            변경할 사용자 ID
-     * @param passwordRequest   비밀번호 변경 요청 정보
-     * @throws BusinessException 사용자를 찾을 수 없거나 현재 비밀번호가 틀린 경우
+     * @param userId          변경할 사용자 ID
+     * @param passwordRequest 비밀번호 변경 요청 정보
      */
     @Transactional
     public void changePassword(Long userId, PasswordChangeRequest passwordRequest) {
@@ -196,11 +189,7 @@ public class UserService {
     }
 
     /**
-     * 이메일 중복 검사
-     * 회원가입 시 사용되는 내부 메소드입니다.
-     *
-     * @param email 검사할 이메일
-     * @throws BusinessException 이메일이 이미 존재하는 경우 EMAIL_ALREADY_EXISTS 예외
+     * 이메일 중복 검사 (내부)
      */
     private void validateEmailNotExists(String email) {
         if (userRepository.existsByEmail(email)) {
@@ -210,11 +199,10 @@ public class UserService {
     }
 
     /**
-     * 이메일 중복 검사 공개 메소드
-     * 프론트엔드에서 실시간 검증을 위해 사용합니다.
+     * 이메일 중복 검사 (공개 API)
      *
      * @param email 검사할 이메일
-     * @return true: 사용 가능한 이메일, false: 이미 사용 중인 이메일
+     * @return true: 사용 가능, false: 이미 사용 중
      */
     public boolean isEmailAvailable(String email) {
         boolean available = !userRepository.existsByEmail(email);

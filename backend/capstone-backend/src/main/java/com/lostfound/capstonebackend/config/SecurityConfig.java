@@ -42,31 +42,35 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> {
-                    boolean isDev = Arrays.asList(environment.getActiveProfiles()).contains("dev");
-                    List<String> permitAll = new ArrayList<>(List.of(
-                            "/",
-                            "/api/health",
-                            "/api/auth/login",
-                            "/api/auth/signup",
-                            "/favicon.ico",
-                            "/error"
-                    ));
-                    if (isDev) {
-                        permitAll.addAll(List.of(
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/v3/api-docs/**"
-                        ));
-                    }
+            .csrf(AbstractHttpConfigurer::disable)
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> {
+                boolean isDev = Arrays.asList(environment.getActiveProfiles()).contains("dev");
 
-                    auth.requestMatchers(permitAll.toArray(String[]::new)).permitAll()
-                        .anyRequest().authenticated();
-                })
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                List<String> permitAll = new ArrayList<>(List.of(
+                        "/",                     // 루트
+                        "/api/health",           // 헬스체크
+                        "/api/auth/login",       // 로그인
+                        "/api/auth/signup",      // 회원가입
+                        "/api/auth/check-email", // 이메일 중복검사
+                        "/favicon.ico",
+                        "/error"
+                ));
+
+                if (isDev) {
+                    permitAll.addAll(List.of(
+                            "/swagger-ui/**",
+                            "/swagger-ui.html",
+                            "/v3/api-docs/**",
+                            "/api/dev/**" // ✅ 개발용 JWT 발급/검증 허용
+                    ));
+                }
+
+                auth.requestMatchers(permitAll.toArray(String[]::new)).permitAll()
+                    .anyRequest().authenticated();
+            })
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -78,7 +82,7 @@ public class SecurityConfig {
         // ALLOWED_ORIGINS 환경변수(콤마 구분) 기반 화이트리스트 CORS 설정
         String originsEnv = System.getenv("ALLOWED_ORIGINS");
         if (originsEnv == null || originsEnv.isBlank()) {
-            originsEnv = "http://localhost:5173"; // 개발 기본값
+            originsEnv = "http://localhost:5173"; // 개발 기본값 (Vite 프론트엔드)
         }
         List<String> origins = Arrays.stream(originsEnv.split(","))
                 .map(String::trim)

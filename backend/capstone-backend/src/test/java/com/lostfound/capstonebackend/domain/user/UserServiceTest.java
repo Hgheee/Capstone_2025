@@ -18,6 +18,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 /**
  * UserService 단위 테스트
@@ -244,13 +246,17 @@ class UserServiceTest {
     void updateUser_Success() {
         // Given
         Long userId = 1L;
-        UserUpdateRequest updateRequest = new UserUpdateRequest("수정된이름", "010-9999-8888");
+        UserUpdateRequest request = new UserUpdateRequest();
+        request.setName("수정된이름");
+        request.setUsername("newusername");   // ✅ 필수 추가
+        request.setPhone("010-9999-8888");
+
         
         given(userRepository.findById(userId)).willReturn(Optional.of(testUser));
         given(userRepository.save(any(User.class))).willReturn(testUser);
 
         // When
-        UserResponse result = userService.updateUser(userId, updateRequest);
+        UserResponse result = userService.updateUser(userId, request);
 
         // Then
         assertThat(result).isNotNull();
