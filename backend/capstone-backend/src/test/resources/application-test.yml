@@ -1,0 +1,116 @@
+# ================================
+# ✅ Spring Boot test profile (H2 + JWT + LOST112 mock)
+# 파일 위치: src/test/resources/application-test.yml
+# ================================
+
+spring:
+  config:
+    activate:
+      on-profile: test   # ← 테스트 시 반드시 이 프로필 사용
+
+  # H2 Database 설정
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  # JPA 설정
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    database: h2
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+        show_sql: true
+        globally_quoted_identifiers: true
+    show-sql: true
+    generate-ddl: true
+    defer-datasource-initialization: false
+
+  # SQL 초기화 비활성화 (테스트에서 schema.sql/data.sql 실행 막기)
+  sql:
+    init:
+      mode: never
+
+  # H2 콘솔 (테스트 디버깅용)
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+# 🔥 Spring Boot 3.x Jakarta 필수 속성(선택) — Hibernate가 직접 읽도록 전달
+jakarta:
+  persistence:
+    jdbc:
+      url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false;MODE=MySQL
+      driver: org.h2.Driver
+      user: sa
+      password:
+
+# ================================
+# 🔐 JWT (대문자 환경키 + 소문자 프로퍼티 둘 다 제공: 어떤 코드 경로도 커버)
+# ================================
+JWT_SECRET_KEY: test-jwt-secret-key-for-integration-testing-must-be-at-least-64-bytes-long-for-security-purposes
+JWT_EXPIRATION_TIME: 900000
+JWT_REFRESH_EXPIRATION_TIME: 604800000
+
+jwt:
+  secret-key: ${JWT_SECRET_KEY}
+  access-token:
+    expiration: ${JWT_EXPIRATION_TIME:900000}
+  refresh-token:
+    expiration: ${JWT_REFRESH_EXPIRATION_TIME:604800000}
+
+# ================================
+# 🔗 LOST112 Mock (대문자 환경키 + 소문자 프로퍼티 둘 다 제공)
+# ================================
+LOST112_API_KEY: test-api-key-for-integration-test
+LOST112_BASE_URL: http://mock-api.test
+LOST112_CONNECT_TIMEOUT_MS: 1000
+LOST112_READ_TIMEOUT_MS: 2000
+LOST112_PAGE_SIZE: 10
+LOST112_PAGE_SLEEP_MS: 100
+
+lost112:
+  base-url: ${LOST112_BASE_URL}
+  api-key: ${LOST112_API_KEY}
+  timeouts:
+    connect-ms: ${LOST112_CONNECT_TIMEOUT_MS:1000}
+    read-ms: ${LOST112_READ_TIMEOUT_MS:2000}
+  page:
+    size: ${LOST112_PAGE_SIZE:10}
+    sleep-ms: ${LOST112_PAGE_SLEEP_MS:100}
+
+# ================================
+# 🗄 기타 환경변수(테스트용)
+# ================================
+DB_URL: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false;MODE=MySQL
+DB_USERNAME: sa
+DB_PASSWORD:
+SERVER_PORT: 0
+ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173
+
+server:
+  port: ${SERVER_PORT:0}
+
+# 테스트 경량화를 위해 Swagger 비활성화(있으면)
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+# ================================
+# 📜 로깅
+# ================================
+logging:
+  level:
+    root: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type: DEBUG
+    com.lostfound: DEBUG
+    com.lostfound.capstonebackend.security: DEBUG

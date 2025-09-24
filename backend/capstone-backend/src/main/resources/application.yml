@@ -1,27 +1,5 @@
 spring:
-  config:
-    import: optional:file:.env[.properties] # .env 파일 불러오기
-
-  datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-
-  jpa:
-    hibernate:
-      ddl-auto: none # 스키마는 schema.sql로 관리
-    show-sql: true
-
-  sql:
-    init:
-      mode: always # schema.sql, data.sql 자동 실행
-
-  profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev} # .env에 없으면 기본값 dev
-
-server:
-  port: ${SERVER_PORT:8081}
-
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
-JWT_SECRET_KEY: "mysupersecretkeyforcapstone2025!!!"
+
+

@@ -41,3 +41,8 @@ frontend/yarn.lock
 # Coverage / Test
 coverage/
 *.lcov
+data/.env
+backend/capstone-backend/data/.env
+__pycache__/
+*.pyc
+.venv/
