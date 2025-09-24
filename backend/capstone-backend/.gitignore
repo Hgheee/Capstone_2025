@@ -3,7 +3,6 @@ target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
-.env
 
 ### STS ###
 .apt_generated
@@ -70,3 +69,80 @@ application-*.local.yml
 
 # Others
 node_modules/
+
+# 환경 설정
+.env
+*.env
+application-local.yml
+application-secret.yml
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# 빌드
+target/
+build/
+*.jar
+*.war
+!gradle-wrapper.jar
+
+# 로그
+logs/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 데이터베이스
+*.db
+*.sql.backup
+dump.sql
+
+# 임시 파일
+*.tmp
+*.temp
+*.bak
+*~
+paste.txt
+
+# 테스트
+coverage/
+.nyc_output/
+
+# 개인 설정
+*.local.*
+my-*
+personal-*
+
+# Claude AI 관련 (개발 과정에서 생성된 파일들)
+claudedocs/
+.claude/
+CLAUDE.md
+CLAUDE.md.txt
+CLAUDE.md.md
+CLAUDE_fixed.md
+
+# 문서 및 스크린샷 (개발 과정)
+*.pdf
+*.jpg
+*.jpeg
+*.png
+*.gif
+
+# 기타 개발 임시 파일
+workflow_*.md
+code_analysis_*.md

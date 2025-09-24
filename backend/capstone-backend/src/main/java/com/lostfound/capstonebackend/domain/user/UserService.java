@@ -10,9 +10,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 /**
- * 사용자 관련 비즈니스 로직을 처리하는 서비스 클래스
- * 회원가입, 로그인, 사용자 정보 관리 등의 기능을 제공합니다.
+ * 사용자 계정 관련 비즈니스 로직을 처리하는 서비스 클래스입니다.
+ * 회원가입, 로그인, 사용자 정보 조회 및 수정, 비밀번호 변경 등의 기능을 제공합니다.
  */
 @Service
 @RequiredArgsConstructor
@@ -25,11 +27,13 @@ public class UserService {
     private final JwtUtils jwtUtils;
 
     /**
-     * 새로운 사용자 회원가입 처리
-     * 이메일 중복 검사, 비밀번호 암호화, 사용자 정보 저장을 수행합니다.
+     * 신규 사용자의 회원가입을 처리합니다.
+     * 이메일 중복 검사 후, 비밀번호를 암호화하여 사용자를 저장합니다.
+     * 첫 가입자인 경우 ADMIN 권한을, 이후 가입자는 USER 권한을 부여합니다.
      *
-     * @param signupRequest 회원가입 요청 정보
-     * @return 생성된 사용자 정보 응답
+     * @param signupRequest 회원가입에 필요한 정보(이메일, 비밀번호, 이름, 전화번호) DTO
+     * @return 생성된 사용자의 정보를 담은 DTO
+     * @throws BusinessException 이메일이 이미 존재하는 경우
      */
     @Transactional
     public UserResponse signup(SignupRequest signupRequest) {
@@ -42,27 +46,38 @@ public class UserService {
         String encodedPassword = passwordEncoder.encode(signupRequest.getPassword());
         log.debug("Password encoded for user: {}", signupRequest.getEmail());
 
-        // 3. User 엔티티 생성 및 저장
+        // 3. 사용자 역할 결정 (첫 가입자는 ADMIN 권한 부여)
+        long userCount = userRepository.count();
+        log.info("Current registered user count before signup: {}", userCount);
+
+        boolean isFirstUser = userCount == 0;
+        UserRole assignedRole = isFirstUser ? UserRole.ADMIN : UserRole.USER;
+        if (isFirstUser) {
+            log.info("First user signup detected. Assigning ADMIN role to email: {}", signupRequest.getEmail());
+        } else {
+            log.info("Assigning USER role to email: {}", signupRequest.getEmail());
+        }
+
+        // 4. User 엔티티 구성 및 저장
         User user = User.builder()
                 .email(signupRequest.getEmail())
                 .password(encodedPassword)
                 .name(signupRequest.getName())
-                .username(signupRequest.getUsername())   // ✅ username 반영
                 .phone(signupRequest.getPhone())
+                .role(assignedRole)
                 .build();
 
         User savedUser = userRepository.save(user);
-        log.info("User signup completed successfully for email: {}", savedUser.getEmail());
+        log.info("User signup completed successfully for email: {} with role: {}", savedUser.getEmail(), savedUser.getRole());
 
         return UserResponse.from(savedUser);
     }
 
     /**
-     * 사용자 로그인 처리
-     * 이메일/비밀번호 검증 후 JWT 토큰을 발급합니다.
-     *
-     * @param loginRequest 로그인 요청 정보
-     * @return JWT 토큰과 사용자 정보를 포함한 응답
+     * 사용자 로그인을 처리하고 JWT 토큰을 발급합니다.
+     * @param loginRequest 로그인 정보(이메일, 비밀번호) DTO
+     * @return JWT 토큰 및 사용자 정보를 포함한 응답 DTO
+     * @throws BusinessException 사용자 정보가 없거나 비밀번호가 일치하지 않는 경우
      */
     @Transactional
     public JwtTokenResponse login(LoginRequest loginRequest) {
@@ -85,7 +100,7 @@ public class UserService {
         String accessToken = jwtUtils.generateToken(user.getEmail());
         log.info("Login successful for user: {}", user.getEmail());
 
-        // 4. 응답 생성
+        // 4. 응답 구성
         return JwtTokenResponse.of(
                 accessToken,
                 jwtUtils.getExpirationSeconds(),
@@ -94,10 +109,10 @@ public class UserService {
     }
 
     /**
-     * 사용자 ID로 사용자 정보 조회
-     *
-     * @param userId 사용자 ID
-     * @return 사용자 정보 응답
+     * 사용자 ID를 이용해 특정 사용자 정보를 조회합니다.
+     * @param userId 조회할 사용자의 ID
+     * @return 조회된 사용자의 정보 DTO
+     * @throws BusinessException 해당 ID의 사용자를 찾을 수 없는 경우
      */
     public UserResponse getUserById(Long userId) {
         log.debug("Retrieving user by ID: {}", userId);
@@ -112,10 +127,10 @@ public class UserService {
     }
 
     /**
-     * 사용자 이메일로 사용자 정보 조회
-     *
-     * @param email 사용자 이메일
-     * @return 사용자 정보 응답
+     * 사용자 이메일을 이용해 특정 사용자 정보를 조회합니다.
+     * @param email 조회할 사용자의 이메일
+     * @return 조회된 사용자의 정보 DTO
+     * @throws BusinessException 해당 이메일의 사용자를 찾을 수 없는 경우
      */
     public UserResponse getUserByEmail(String email) {
         log.debug("Retrieving user by email: {}", email);
@@ -130,11 +145,11 @@ public class UserService {
     }
 
     /**
-     * 사용자 정보 수정
-     *
-     * @param userId        수정할 사용자 ID
-     * @param updateRequest 수정 요청 정보
-     * @return 수정된 사용자 정보 응답
+     * 특정 사용자의 정보를 수정합니다. (이름, 전화번호)
+     * @param userId 정보를 수정할 사용자의 ID
+     * @param updateRequest 수정할 사용자 정보(이름, 전화번호)를 담은 DTO
+     * @return 수정 완료된 사용자의 정보 DTO
+     * @throws BusinessException 해당 ID의 사용자를 찾을 수 없는 경우
      */
     @Transactional
     public UserResponse updateUser(Long userId, UserUpdateRequest updateRequest) {
@@ -146,12 +161,8 @@ public class UserService {
                     return new BusinessException(ErrorCode.USER_NOT_FOUND);
                 });
 
-        // ✅ 이름, 닉네임(username), 전화번호 업데이트
-        user.updateUserInfo(
-                updateRequest.getName(),
-                updateRequest.getUsername(),
-                updateRequest.getPhone()
-        );
+        // 사용자 정보 업데이트
+        user.updateUserInfo(updateRequest.getName(), updateRequest.getPhone());
         User updatedUser = userRepository.save(user);
 
         log.info("User update completed for ID: {}", userId);
@@ -159,10 +170,11 @@ public class UserService {
     }
 
     /**
-     * 사용자 비밀번호 변경
-     *
-     * @param userId          변경할 사용자 ID
-     * @param passwordRequest 비밀번호 변경 요청 정보
+     * 특정 사용자의 비밀번호를 변경합니다.
+     * 현재 비밀번호를 확인하여 일치할 경우에만 새 비밀번호로 변경합니다.
+     * @param userId 비밀번호를 변경할 사용자의 ID
+     * @param passwordRequest 현재 비밀번호와 새 비밀번호를 담은 DTO
+     * @throws BusinessException 해당 ID의 사용자를 찾을 수 없거나, 현재 비밀번호가 일치하지 않는 경우
      */
     @Transactional
     public void changePassword(Long userId, PasswordChangeRequest passwordRequest) {
@@ -180,7 +192,7 @@ public class UserService {
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
 
-        // 새 비밀번호 암호화 및 업데이트
+        // 새 비밀번호 암호화 후 업데이트
         String encodedNewPassword = passwordEncoder.encode(passwordRequest.getNewPassword());
         user.updatePassword(encodedNewPassword);
         userRepository.save(user);
@@ -189,7 +201,9 @@ public class UserService {
     }
 
     /**
-     * 이메일 중복 검사 (내부)
+     * 이메일 중복을 검증합니다. (내부 로직용)
+     * @param email 검증할 이메일
+     * @throws BusinessException 이메일이 이미 존재하는 경우
      */
     private void validateEmailNotExists(String email) {
         if (userRepository.existsByEmail(email)) {
@@ -199,10 +213,9 @@ public class UserService {
     }
 
     /**
-     * 이메일 중복 검사 (공개 API)
-     *
-     * @param email 검사할 이메일
-     * @return true: 사용 가능, false: 이미 사용 중
+     * 회원가입 전, 특정 이메일이 사용 가능한지 확인합니다.
+     * @param email 중복 확인할 이메일 주소
+     * @return 이메일이 사용 가능하면 true, 이미 존재하면 false
      */
     public boolean isEmailAvailable(String email) {
         boolean available = !userRepository.existsByEmail(email);
