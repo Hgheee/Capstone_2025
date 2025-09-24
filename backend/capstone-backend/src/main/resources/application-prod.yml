@@ -15,7 +15,7 @@ spring:
       mode: never
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${SERVER_PORT:8081}
 
 debug: true
 
@@ -48,11 +48,9 @@ lost112:
     timeout-sec: ${LOST112_PYTHON_TIMEOUT_SEC:120}
     max-output-chars: ${LOST112_PYTHON_MAX_OUTPUT_CHARS:200000}
 
-
 jwt:
   secret-key: ${JWT_SECRET_KEY}
   access-token:
     expiration: ${JWT_EXPIRATION_TIME:900000}
   refresh-token:
     expiration: ${JWT_REFRESH_EXPIRATION_TIME:604800000}
-
