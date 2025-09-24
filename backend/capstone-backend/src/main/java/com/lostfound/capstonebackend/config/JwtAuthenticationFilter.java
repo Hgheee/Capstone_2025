@@ -134,6 +134,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 path.startsWith("/api/health") ||
                 path.equals("/api/auth/login") ||
                 path.equals("/api/auth/signup") ||
+                 path.equals("/api/auth/check-email") ||
+                 path.startsWith("/api/dev/") ||  
                 path.startsWith("/swagger-ui/") ||
                 path.startsWith("/v3/api-docs/") ||
                 path.equals("/favicon.ico") ||

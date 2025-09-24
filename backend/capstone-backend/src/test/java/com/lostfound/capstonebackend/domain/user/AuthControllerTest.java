@@ -249,7 +249,11 @@ class AuthControllerTest {
     @WithMockUser(username = "test@example.com", roles = "USER")
     @DisplayName("내 정보 수정 성공")
     void updateCurrentUser_Success() throws Exception {
-        UserUpdateRequest updateRequest = new UserUpdateRequest("수정된이름", "010-9999-8888");
+        UserUpdateRequest request = new UserUpdateRequest();
+        request.setName("수정된이름");
+        request.setUsername("newusername");   // ✅ 필수 추가
+        request.setPhone("010-9999-8888");
+
         UserResponse updatedResponse = UserResponse.builder()
                 .id(1L)
                 .email("test@example.com")
@@ -265,7 +269,7 @@ class AuthControllerTest {
         mockMvc.perform(put("/api/auth/me")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updateRequest)))
+                        .content(objectMapper.writeValueAsString(request)))
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
