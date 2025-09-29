@@ -1,3 +1,11 @@
+@import "./font.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+body {
+  font-family: "Elice DigitalBaeum", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic",
+    sans-serif;
+}

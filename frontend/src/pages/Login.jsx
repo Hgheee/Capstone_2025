@@ -1,72 +1,82 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { authApi } from "../lib/api";
-import { useAuth } from "../contexts/AuthContext";
 
 export default function Login() {
-  const nav = useNavigate();
-  const { login: saveUser } = useAuth();
-  const [form, setForm] = useState({ email: "", password: "" });
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
+  const [form, setForm] = useState({
+    username: "",
+    password: "",
+  });
 
-  const onChange = (e) => {
-    const { name, value } = e.target;
-    setForm((s) => ({ ...s, [name]: value }));
-  };
-
-  const onSubmit = async (e) => {
+  const onSubmit = (e) => {
     e.preventDefault();
-    setErr("");
-    if (!form.email || !form.password) {
-      setErr("이메일과 비밀번호를 입력하세요.");
-      return;
-    }
-    try {
-      setLoading(true);
-      const { data } = await authApi.login(form);
-      // 백엔드 응답 형태에 따라 조정 (예: { token, user: {email, name} } 또는 {email, name})
-      const userPayload = {
-        email: data?.user?.email || form.email,
-        name: data?.user?.name || undefined,
-        token: data?.token || undefined,
-      };
-      saveUser(userPayload);
-      alert("로그인 성공!");
-      nav("/home");
-    } catch (e) {
-      const msg =
-        e?.response?.data?.message || "로그인 실패. 정보를 확인하세요.";
-      setErr(msg);
-    } finally {
-      setLoading(false);
-    }
+    console.log("로그인 시도:", form);
+    // TODO: fetch("http://localhost:8081/api/auth/login", {...})
   };
 
   return (
-    <section style={{ maxWidth: 420, margin: "0 auto" }}>
-      <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12 }}>
-        로그인
-      </h2>
-      <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
-        <input
-          name="email"
-          placeholder="이메일"
-          value={form.email}
-          onChange={onChange}
-        />
-        <input
-          name="password"
-          type="password"
-          placeholder="비밀번호"
-          value={form.password}
-          onChange={onChange}
-        />
-        <button type="submit" disabled={loading}>
-          {loading ? "처리 중..." : "로그인"}
-        </button>
-      </form>
-      {err && <p style={{ color: "crimson", marginTop: 8 }}>{err}</p>}
-    </section>
+    <div className="min-h-screen flex items-center justify-center bg-white font-elice">
+      {/* 전체 컨테이너 */}
+      <div className="w-full max-w-[600px] border border-gray-400 rounded-lg p-10 shadow-sm bg-white">
+        {/* 제목 */}
+        <h1 className="text-[48px] leading-[72px] text-[#3D3D3D] text-center mb-10">
+          로그인
+        </h1>
+        <hr className="border-gray-300 mb-8" />
+
+        {/* 폼 */}
+        <form onSubmit={onSubmit} className="space-y-6 w-full">
+          {/* 아이디 */}
+          <div>
+            <label className="block text-[20px] text-[#3D3D3D] mb-2">
+              아이디
+            </label>
+            <input
+              type="text"
+              placeholder="아이디 입력"
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              className="w-full h-[56px] border border-[#656565] rounded-[12px] px-4 text-base"
+            />
+          </div>
+
+          {/* 비밀번호 */}
+          <div>
+            <label className="block text-[20px] text-[#3D3D3D] mb-2">
+              비밀번호
+            </label>
+            <input
+              type="password"
+              placeholder="비밀번호 입력"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              className="w-full h-[56px] border border-[#848484] rounded-[12px] px-4 text-base"
+            />
+          </div>
+
+          {/* 비밀번호 찾기 */}
+          <div className="text-right">
+            <button
+              type="button"
+              className="text-[16px] text-[#8B8B8B] hover:underline"
+            >
+              비밀번호를 잊으셨나요?
+            </button>
+          </div>
+
+          {/* 로그인 버튼 */}
+          <div className="flex justify-center pt-6">
+            <button
+              type="submit"
+              className="w-full max-w-[300px] h-[50px] rounded-[90px] text-white text-[20px]"
+              style={{
+                background:
+                  "linear-gradient(0deg, rgba(0,0,0,0.2), rgba(0,0,0,0.2)), #A2AADB",
+              }}
+            >
+              로그인
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }

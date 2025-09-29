@@ -1,0 +1,15 @@
+@font-face {
+  font-family: "Elice DigitalBaeum";
+  src: url("/fonts/EliceDigitalBaeum_Regular.ttf") format("truetype");
+  font-weight: 400; /* Regular */
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Elice DigitalBaeum";
+  src: url("/fonts/EliceDigitalBaeum_Bold.ttf") format("truetype");
+  font-weight: 700; /* Bold */
+  font-style: normal;
+  font-display: swap;
+}

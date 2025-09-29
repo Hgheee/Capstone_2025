@@ -6,7 +6,7 @@ import Layout from "./components/Layout.jsx";
 //페이지 컴포넌트
 import Home from "./pages/Home.jsx";
 import Login from "./pages/Login.jsx";
-import Signup from "./pages/Register.jsx";
+import Register from "./pages/Register.jsx";
 import NotFound from "./pages/NotFound.jsx";
 
 export default function App() {
@@ -19,7 +19,7 @@ export default function App() {
         {/* 페이지 라우트 */}
         <Route path="/home" element={<Home />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route path="/register" element={<Register />} />
 
         {/* 404 페이지 */}
         <Route path="*" element={<NotFound />} />
