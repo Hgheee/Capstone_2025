@@ -1,72 +1,93 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { authApi } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function Login() {
-  const nav = useNavigate();
-  const { login: saveUser } = useAuth();
-  const [form, setForm] = useState({ email: "", password: "" });
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
-
-  const onChange = (e) => {
-    const { name, value } = e.target;
-    setForm((s) => ({ ...s, [name]: value }));
-  };
-
+  const [form, setForm] = useState({ username: "", password: "" });
+  const { login } = useAuth();
+  const navigate = useNavigate();
   const onSubmit = async (e) => {
     e.preventDefault();
-    setErr("");
-    if (!form.email || !form.password) {
-      setErr("이메일과 비밀번호를 입력하세요.");
-      return;
-    }
     try {
-      setLoading(true);
-      const { data } = await authApi.login(form);
-      // 백엔드 응답 형태에 따라 조정 (예: { token, user: {email, name} } 또는 {email, name})
-      const userPayload = {
-        email: data?.user?.email || form.email,
-        name: data?.user?.name || undefined,
-        token: data?.token || undefined,
-      };
-      saveUser(userPayload);
-      alert("로그인 성공!");
-      nav("/home");
-    } catch (e) {
+      await login(form);
+      navigate("/home");
+    } catch (err) {
+      // 백엔드 에러 메시지 표시
       const msg =
-        e?.response?.data?.message || "로그인 실패. 정보를 확인하세요.";
-      setErr(msg);
-    } finally {
-      setLoading(false);
+        err.response?.data?.message || "로그인 중 오류가 발생했습니다.";
+      alert(msg);
+      console.error(err);
     }
   };
 
   return (
-    <section style={{ maxWidth: 420, margin: "0 auto" }}>
-      <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12 }}>
-        로그인
-      </h2>
-      <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
-        <input
-          name="email"
-          placeholder="이메일"
-          value={form.email}
-          onChange={onChange}
-        />
-        <input
-          name="password"
-          type="password"
-          placeholder="비밀번호"
-          value={form.password}
-          onChange={onChange}
-        />
-        <button type="submit" disabled={loading}>
-          {loading ? "처리 중..." : "로그인"}
-        </button>
-      </form>
-      {err && <p style={{ color: "crimson", marginTop: 8 }}>{err}</p>}
-    </section>
+    <div className="min-h-screen flex items-center justify-center bg-white font-elice">
+      {/* 전체 컨테이너*/}
+      <div className="w-full max-w-[1100px] border border-gray-400 rounded-lg p-16 shadow-md bg-white">
+        {/* 제목 */}
+        <h1 className="text-[56px] leading-[72px] text-[#3D3D3D] text-center mb-14">
+          로그인
+        </h1>
+        <hr className="border-gray-300 mb-12" />
+
+        {/* 폼 */}
+        <form
+          onSubmit={onSubmit}
+          className="space-y-10 w-full max-w-[700px] mx-auto"
+        >
+          {/* 아이디 */}
+          <div>
+            <label className="block text-[22px] text-[#3D3D3D] mb-3">
+              아이디
+            </label>
+            <input
+              type="text"
+              placeholder="아이디 입력"
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              className="w-full h-[64px] border border-[#656565] rounded-[12px] px-5 text-lg"
+            />
+          </div>
+
+          {/* 비밀번호 */}
+          <div>
+            <label className="block text-[22px] text-[#3D3D3D] mb-3">
+              비밀번호
+            </label>
+            <input
+              type="password"
+              placeholder="비밀번호 입력"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              className="w-full h-[64px] border border-[#848484] rounded-[12px] px-5 text-lg"
+            />
+          </div>
+
+          {/* 비밀번호 찾기 */}
+          <div className="text-right">
+            <button
+              type="button"
+              className="text-[18px] text-[#8B8B8B] hover:underline"
+            >
+              비밀번호를 잊으셨나요?
+            </button>
+          </div>
+
+          {/* 로그인 버튼 */}
+          <div className="flex justify-center pt-8">
+            <button
+              type="submit"
+              className="w-full max-w-[400px] h-[60px] rounded-[90px] text-white text-[22px]"
+              style={{
+                background:
+                  "linear-gradient(0deg, rgba(0,0,0,0.2), rgba(0,0,0,0.2)), #A2AADB",
+              }}
+            >
+              로그인
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
