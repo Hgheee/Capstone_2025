@@ -9,6 +9,8 @@ import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import NotFound from "./pages/NotFound.jsx";
 
+import ProtectedRoute from "./components/routing/ProtectedRoute.jsx";
+
 export default function App() {
   return (
     <Routes>
@@ -20,6 +22,11 @@ export default function App() {
         <Route path="/home" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+
+        {/*보호 라우트 */}
+        <Route element={<ProtectedRoute />}>
+          {/* <Route path="/dashboard" element={<Dashboard />} /> */}
+        </Route>
 
         {/* 404 페이지 */}
         <Route path="*" element={<NotFound />} />

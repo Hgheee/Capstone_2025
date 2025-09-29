@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -13,11 +15,37 @@ export default function Register() {
     month: "",
     day: "",
   });
+  const { register } = useAuth(); // ✅ 컨텍스트 사용
+  const navigate = useNavigate();
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
-    console.log("회원가입 데이터:", form);
-    // TODO: fetch("http://localhost:8081/api/auth/signup", {...})
+
+    if (form.password !== form.confirmPassword) {
+      alert("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
+    // 이메일/생년월일 합치기 (백엔드가 원하는 형태에 맞추세요)
+    const payload = {
+      username: form.username,
+      password: form.password,
+      name: form.name,
+      phone: form.phone,
+      email: `${form.emailUser}@${form.emailDomain}`,
+      birth: `${form.year}-${form.month}-${form.day}`, // "YYYY-MM-DD"
+    };
+
+    try {
+      await register(payload);
+      alert("회원가입이 완료되었습니다. 로그인 해주세요.");
+      navigate("/login");
+    } catch (err) {
+      const msg =
+        err.response?.data?.message || "회원가입 중 오류가 발생했습니다.";
+      alert(msg);
+      console.error(err);
+    }
   };
 
   return (

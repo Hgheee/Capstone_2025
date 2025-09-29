@@ -1,13 +1,34 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import SearchIcon from "../components/icons/SearchIcon.jsx";
+import api from "../api/axios";
 
 export default function Home() {
   const [query, setQuery] = useState("");
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const onSearch = () => {
-    console.log("검색어:", query);
-    // TODO: API 연동 (예: /api/lost-items?query=...)
+  const fetchItems = async (q = "") => {
+    setLoading(true);
+    try {
+      // 예: GET /lost-items?query=...
+      const { data } = await api.get("/lost-items", {
+        params: q ? { query: q } : undefined,
+      });
+      // 백엔드 응답 형태에 맞게 조정
+      setItems(data.items || data || []);
+    } catch (err) {
+      console.error(err);
+      alert("목록을 불러오는 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    fetchItems();
+  }, []);
+
+  const onSearch = () => fetchItems(query);
 
   return (
     <div className="w-full bg-white">
