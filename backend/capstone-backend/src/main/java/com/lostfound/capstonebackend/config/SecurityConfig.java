@@ -83,6 +83,7 @@ public class SecurityConfig {
                             "/api/health",
                             "/api/auth/login",
                             "/api/auth/signup",
+                            "/api/lost-items/**",   // ✅ 분실물 조회 API는 공개
                             "/favicon.ico",
                             "/error"
                     ));
