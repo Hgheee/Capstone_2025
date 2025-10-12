@@ -12,12 +12,10 @@ function formatPhoneKR(input) {
   const digits = (input ?? "").replace(/\D/g, "");
   if (!digits) return "";
   if (digits.startsWith("02")) {
-    // 02-XXXX-XXXX
     if (digits.length <= 2) return digits;
     if (digits.length <= 6) return digits.replace(/(\d{2})(\d{0,4})/, "$1-$2");
     return digits.replace(/(\d{2})(\d{4})(\d{0,4}).*/, "$1-$2-$3");
   }
-  // 010/011/016/017/018/019
   if (digits.length <= 3) return digits;
   if (digits.length <= 7) return digits.replace(/(\d{3})(\d{0,4})/, "$1-$2");
   return digits.replace(/(\d{3})(\d{3,4})(\d{0,4}).*/, "$1-$2-$3");
@@ -26,6 +24,26 @@ function formatPhoneKR(input) {
 /** 백엔드 ApiResponse({ success, data, error })와 direct body를 모두 호환 */
 function unwrapApi(data) {
   return data && typeof data === "object" && "data" in data ? data.data : data;
+}
+
+/** 에러 메시지 최대한 문자열로 정제하여 [object Object] 방지 */
+function extractErrorMessage(err) {
+  const server = err?.response?.data;
+  let msg =
+    (typeof server?.message === "string" && server.message) ||
+    (typeof server?.error === "string" && server.error) ||
+    (typeof server?.error?.message === "string" && server?.error?.message) ||
+    (typeof server === "string" && server) ||
+    err?.message ||
+    "요청 처리 중 오류가 발생했습니다.";
+  if (typeof msg !== "string") {
+    try {
+      msg = JSON.stringify(server);
+    } catch {
+      msg = "요청 처리 실패(원인 미상)";
+    }
+  }
+  return msg;
 }
 
 export default function AuthProvider({ children }) {
@@ -42,19 +60,31 @@ export default function AuthProvider({ children }) {
       try {
         setUser(JSON.parse(savedUser));
       } catch {
-        /* noop */
+        /* ignore */
       }
     }
     setLoading(false);
   }, []);
 
-  // 로그인: 현재 구조 유지(아이디= username, 비번= password)
-  // 백엔드가 ApiResponse 래핑을 쓰는 경우를 고려해 파싱
-  const login = async ({ username, password, email }) => {
+  /**
+   * 로그인: 백엔드가 email + password를 기대하므로 이에 맞춤.
+   * - Login.jsx에서 email, password로 호출하세요.
+   * - 만약 UI가 한 칸(identifier)만 받는다면 identifier에 @가 있으면 email로 간주해 넘기세요.
+   */
+  const login = async ({ email, password, identifier } = {}) => {
     try {
-      // 혹시 이메일로 로그인 폼을 구성했다면 email도 함께 전송(백엔드 무시해도 됨)
-      const payload = { username, password, ...(email ? { email } : {}) };
+      let finalEmail = (email ?? "").trim();
+      if (!finalEmail && identifier) {
+        finalEmail = identifier.includes("@") ? identifier.trim() : "";
+      }
+      if (!finalEmail) {
+        throw new Error("이메일을 올바르게 입력해주세요.");
+      }
+      if (!password) {
+        throw new Error("비밀번호를 입력해주세요.");
+      }
 
+      const payload = { email: finalEmail, password };
       const { data } = await api.post("/auth/login", payload, {
         headers: { "Content-Type": "application/json" },
         timeout: 15000,
@@ -62,7 +92,7 @@ export default function AuthProvider({ children }) {
 
       const body = unwrapApi(data);
       const accessToken = body?.accessToken || body?.token;
-      const userInfo = body?.user || { username, email };
+      const userInfo = body?.user || { email: finalEmail };
 
       if (!accessToken) {
         throw new Error("로그인 토큰이 응답에 없습니다.");
@@ -74,13 +104,11 @@ export default function AuthProvider({ children }) {
       setUser(userInfo);
       return userInfo;
     } catch (err) {
-      // 에러 메시지 최대한 뽑아서 사용자에게 전달
-      const msg =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.message ||
-        "로그인에 실패했습니다.";
-      throw new Error(msg);
+      const msg = extractErrorMessage(err);
+      const wrapped = new Error(msg);
+      wrapped.response = err?.response;
+      wrapped.cause = err;
+      throw wrapped;
     }
   };
 
@@ -93,7 +121,6 @@ export default function AuthProvider({ children }) {
         username: payload?.username?.trim(),
         name: payload?.name?.trim(),
         password: payload?.password,
-        // phone은 백엔드 정규식(010-1234-5678) 통과하도록 하이픈 포맷
         ...(payload?.phone !== undefined
           ? { phone: formatPhoneKR(payload.phone) }
           : {}),
@@ -104,14 +131,13 @@ export default function AuthProvider({ children }) {
         timeout: 15000,
       });
 
-      // 보통 회원가입은 토큰을 바로 주지 않으니 반환만
       return unwrapApi(data);
     } catch (err) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        "회원가입에 실패했습니다. 입력값을 다시 확인해주세요.";
-      throw new Error(msg);
+      const msg = extractErrorMessage(err);
+      const wrapped = new Error(msg);
+      wrapped.response = err?.response;
+      wrapped.cause = err;
+      throw wrapped;
     }
   };
 

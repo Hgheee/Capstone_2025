@@ -3,26 +3,45 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function Login() {
-  const [form, setForm] = useState({ username: "", password: "" });
+  // ✅ 백엔드가 email + password를 기대하므로 상태를 이메일 기반으로 변경
+  const [form, setForm] = useState({ email: "", password: "" });
   const { login } = useAuth();
   const navigate = useNavigate();
+
   const onSubmit = async (e) => {
     e.preventDefault();
     try {
-      await login(form);
+      // 최소 검증: 이메일 형식
+      if (!form.email || !form.email.includes("@")) {
+        alert("이메일을 올바르게 입력해주세요.");
+        return;
+      }
+      if (!form.password) {
+        alert("비밀번호를 입력해주세요.");
+        return;
+      }
+
+      // ✅ AuthContext.login은 { email, password } 를 받도록 수정됨
+      await login({ email: form.email, password: form.password });
       navigate("/home");
     } catch (err) {
-      // 백엔드 에러 메시지 표시
+      // ✅ AuthContext에서 이미 사람이 읽을 수 있는 message로 변환해 던지므로 우선 사용
       const msg =
-        err.response?.data?.message || "로그인 중 오류가 발생했습니다.";
+        err?.message ||
+        err?.response?.data?.message ||
+        "로그인 중 오류가 발생했습니다.";
       alert(msg);
-      console.error(err);
+      console.error("LOGIN FAIL ::", {
+        status: err?.response?.status,
+        data: err?.response?.data,
+        message: err?.message,
+      });
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white font-elice">
-      {/* 전체 컨테이너*/}
+      {/* 전체 컨테이너 */}
       <div className="w-full max-w-[1100px] border border-gray-400 rounded-lg p-16 shadow-md bg-white">
         {/* 제목 */}
         <h1 className="text-[56px] leading-[72px] text-[#3D3D3D] text-center mb-14">
@@ -35,17 +54,19 @@ export default function Login() {
           onSubmit={onSubmit}
           className="space-y-10 w-full max-w-[700px] mx-auto"
         >
-          {/* 아이디 */}
+          {/* 이메일 */}
           <div>
             <label className="block text-[22px] text-[#3D3D3D] mb-3">
-              아이디
+              이메일
             </label>
             <input
-              type="text"
-              placeholder="아이디 입력"
-              value={form.username}
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              type="email"
+              placeholder="이메일 입력"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
               className="w-full h-[64px] border border-[#656565] rounded-[12px] px-5 text-lg"
+              autoComplete="username"
+              inputMode="email"
             />
           </div>
 
@@ -60,6 +81,7 @@ export default function Login() {
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               className="w-full h-[64px] border border-[#848484] rounded-[12px] px-5 text-lg"
+              autoComplete="current-password"
             />
           </div>
 
