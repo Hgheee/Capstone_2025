@@ -33,7 +33,7 @@ export default function Layout() {
 
       {/* 푸터 */}
       <footer className="border-t bg-white text-center text-sm text-gray-500 py-4">
-        © 2025 Lost & Found. All rights reserved.
+        2025 Capstone design project - Lost & Found.
       </footer>
     </div>
   );
