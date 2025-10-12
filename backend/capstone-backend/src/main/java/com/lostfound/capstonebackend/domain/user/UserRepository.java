@@ -36,6 +36,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
      */
     boolean existsByEmail(String email);
 
+     // ✅ 추가: username 중복 체크
+    boolean existsByUsername(String username);
+
+    // (권장) 조회 메서드도 함께 추가
+    //Optional<User> findByEmail(String email);
+    Optional<User> findByUsername(String username);
     /**
      * ID와 이메일로 사용자 조회 (보안 검증용)
      * 추가적인 보안 검증이 필요한 경우 사용됩니다.

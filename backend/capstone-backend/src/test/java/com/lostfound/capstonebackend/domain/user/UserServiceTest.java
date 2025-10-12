@@ -248,7 +248,7 @@ class UserServiceTest {
         Long userId = 1L;
         UserUpdateRequest request = new UserUpdateRequest();
         request.setName("수정된이름");
-        request.setUsername("newusername");   // ✅ 필수 추가
+        request.setUsername("newusername");  
         request.setPhone("010-9999-8888");
 
         
