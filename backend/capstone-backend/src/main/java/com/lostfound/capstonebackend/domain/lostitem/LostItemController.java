@@ -236,6 +236,124 @@ public class LostItemController {
         return ApiResponse.ok(lostItemService.updateStatus(id, status, userDetails.getUsername()));
     }
 
+    // ========== 고도화된 검색 기능 추가 ==========
+
+    /**
+     * 지역(위치)별 분실물을 검색합니다.
+     * 습득 장소와 보관 장소 모두에서 검색됩니다.
+     * @param region 지역명 키워드
+     * @param page   페이지 번호
+     * @param size   페이지 크기
+     * @param sort   정렬 조건
+     * @return 해당 지역의 분실물 목록 페이지가 포함된 ApiResponse
+     */
+    @GetMapping("/search/region")
+    @Operation(summary = "지역별 분실물 검색", description = "습득 장소 또는 보관 장소에서 지역명으로 검색")
+    public ApiResponse<Page<LostItemResponse>> searchByRegion(
+            @Parameter(description = "지역명 키워드") @RequestParam String region,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "sort", defaultValue = "createdAt,desc") String sort
+    ) {
+        Sort sortSpec = parseSort(sort);
+        Pageable pageable = PageRequest.of(page, size, sortSpec);
+        return ApiResponse.ok(lostItemService.searchByRegion(region, pageable));
+    }
+
+    /**
+     * 색상별 분실물을 검색합니다.
+     * @param color 색상 키워드 (대소문자 구분 없음)
+     * @param page  페이지 번호
+     * @param size  페이지 크기
+     * @param sort  정렬 조건
+     * @return 해당 색상의 분실물 목록 페이지가 포함된 ApiResponse
+     */
+    @GetMapping("/search/color")
+    @Operation(summary = "색상별 분실물 검색", description = "분실물의 색상 정보로 검색")
+    public ApiResponse<Page<LostItemResponse>> searchByColor(
+            @Parameter(description = "색상 키워드") @RequestParam String color,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "sort", defaultValue = "createdAt,desc") String sort
+    ) {
+        Sort sortSpec = parseSort(sort);
+        Pageable pageable = PageRequest.of(page, size, sortSpec);
+        return ApiResponse.ok(lostItemService.searchByColor(color, pageable));
+    }
+
+    /**
+     * 전체 텍스트 검색을 수행합니다.
+     * 제목, 설명, 카테고리, 색상, 위치 모든 필드에서 검색합니다.
+     * @param text 검색할 텍스트
+     * @param page 페이지 번호
+     * @param size 페이지 크기
+     * @param sort 정렬 조건
+     * @return 검색된 분실물 목록 페이지가 포함된 ApiResponse
+     */
+    @GetMapping("/search/fulltext")
+    @Operation(summary = "전체 텍스트 검색", description = "모든 필드(제목, 설명, 카테고리, 색상, 위치)에서 포괄적 검색")
+    public ApiResponse<Page<LostItemResponse>> searchByFullText(
+            @Parameter(description = "검색할 텍스트") @RequestParam String text,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "sort", defaultValue = "createdAt,desc") String sort
+    ) {
+        Sort sortSpec = parseSort(sort);
+        Pageable pageable = PageRequest.of(page, size, sortSpec);
+        return ApiResponse.ok(lostItemService.searchByFullText(text, pageable));
+    }
+
+    /**
+     * 특정 상태의 최근 분실물을 조회합니다.
+     * @param status 분실물 상태 (FOUND, CLAIMED, EXPIRED)
+     * @param limit  조회할 개수 (기본값: 10)
+     * @return 해당 상태의 최근 분실물 목록이 포함된 ApiResponse
+     */
+    @GetMapping("/recent/status/{status}")
+    @Operation(summary = "상태별 최근 분실물", description = "특정 상태의 최근 등록된 분실물 조회")
+    public ApiResponse<List<LostItemResponse>> getRecentItemsByStatus(
+            @Parameter(description = "분실물 상태") @PathVariable String status,
+            @Parameter(description = "조회할 개수") @RequestParam(defaultValue = "10") int limit
+    ) {
+        return ApiResponse.ok(lostItemService.findRecentItemsByStatus(status, limit));
+    }
+
+    /**
+     * 특정 기간 동안 등록된 분실물을 조회합니다. (생성일 기준)
+     * @param startDate 시작일 (yyyy-MM-dd)
+     * @param endDate   종료일 (yyyy-MM-dd)
+     * @param page      페이지 번호
+     * @param size      페이지 크기
+     * @param sort      정렬 조건
+     * @return 해당 기간의 분실물 목록 페이지가 포함된 ApiResponse
+     */
+    @GetMapping("/search/daterange")
+    @Operation(summary = "기간별 분실물 검색", description = "특정 기간 동안 등록된 분실물 조회 (생성일 기준)")
+    public ApiResponse<Page<LostItemResponse>> searchByDateRange(
+            @Parameter(description = "시작일 (yyyy-MM-dd)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @Parameter(description = "종료일 (yyyy-MM-dd)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size,
+            @RequestParam(name = "sort", defaultValue = "createdAt,desc") String sort
+    ) {
+        Sort sortSpec = parseSort(sort);
+        Pageable pageable = PageRequest.of(page, size, sortSpec);
+        return ApiResponse.ok(lostItemService.findByDateRange(startDate, endDate, pageable));
+    }
+
+    /**
+     * 현재 로그인한 사용자의 분실물 상태별 통계를 조회합니다.
+     * @param userDetails 현재 인증된 사용자의 정보
+     * @return [상태, 개수] 형태의 통계 목록이 포함된 ApiResponse
+     */
+    @GetMapping("/my/statistics")
+    @Operation(summary = "내 분실물 통계", description = "현재 사용자의 분실물 상태별 통계 조회")
+    public ApiResponse<List<Object[]>> getMyStatusStatistics(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ApiResponse.ok(lostItemService.getMyStatusStatistics(userDetails.getUsername()));
+    }
+
     /**
      * "property,direction;property2,direction2" 형식의 정렬 파라미터 문자열을 파싱하여
      * Spring Data의 {@link Sort} 객체로 변환합니다.

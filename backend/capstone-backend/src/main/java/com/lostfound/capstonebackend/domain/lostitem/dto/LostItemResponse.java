@@ -14,12 +14,15 @@ import java.time.LocalDateTime;
  * @param category        카테고리
  * @param location        습득 장소
  * @param foundDate       습득일
- * @param status          현재 상태 (FOUND, CLAIMED, EXPIRED)
- * @param dataSource      데이터 출처 (USER, LOST112)
+ * @param status          현재 상태 (FOUND, CLAIMED, EXPIRED 등)
+ * @param externalId      외부 시스템 고유 ID
+ * @param dataSource      데이터 출처 (USER, LOST112, SEOUL_LOST 등)
  * @param color           색상
  * @param storageLocation 보관 장소
  * @param imagePath       이미지 경로
  * @param ownerName       등록한 사용자의 이름 (외부 데이터의 경우 null)
+ * @param viewCount       외부 데이터 조회수
+ * @param receivedDate    외부 시스템 기준 수령 일시
  * @param createdAt       생성 일시
  * @param updatedAt       수정 일시
  */
@@ -31,11 +34,14 @@ public record LostItemResponse(
         String location,
         LocalDate foundDate,
         String status,
+        String externalId,
         String dataSource,
         String color,
         String storageLocation,
         String imagePath,
         String ownerName,
+        Integer viewCount,
+        LocalDateTime receivedDate,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -53,11 +59,14 @@ public record LostItemResponse(
                 item.getLocation(),
                 item.getFoundDate(),
                 item.getStatus() != null ? item.getStatus().name() : null,
+                item.getExternalId(),
                 item.getDataSource() != null ? item.getDataSource().name() : null,
                 item.getColor(),
                 item.getStorageLocation(),
                 item.getImagePath(),
                 item.getOwner() != null ? item.getOwner().getName() : null,
+                item.getViewCount(),
+                item.getReceivedDate(),
                 item.getCreatedAt(),
                 item.getUpdatedAt()
         );

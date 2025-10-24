@@ -236,6 +236,28 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.10</version>
+                <configuration>
+                    <!-- 커버리지에서 제외할 클래스들 -->
+                    <excludes>
+                        <!-- DTO 클래스 제외 -->
+                        <exclude>**/*Dto.class</exclude>
+                        <exclude>**/*Request.class</exclude>
+                        <exclude>**/*Response.class</exclude>
+                        <exclude>**/dto/**/*.class</exclude>
+
+                        <!-- 설정 클래스 제외 -->
+                        <exclude>**/config/**/*.class</exclude>
+                        <exclude>**/*Config.class</exclude>
+
+                        <!-- 미구현 기능 제외 -->
+                        <exclude>**/admin/**/*.class</exclude>
+                        <exclude>**/dev/**/*.class</exclude>
+                        <exclude>**/system/**/*.class</exclude>
+
+                        <!-- Application 메인 클래스 -->
+                        <exclude>**/CapstoneBackendApplication.class</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>

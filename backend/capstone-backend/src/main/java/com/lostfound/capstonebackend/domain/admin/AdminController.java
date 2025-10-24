@@ -6,6 +6,7 @@ import com.lostfound.capstonebackend.domain.lost112.Lost112ImportService;
 import com.lostfound.capstonebackend.domain.lost112.dto.Lost112ImportRequest;
 import com.lostfound.capstonebackend.domain.lost112.dto.PythonCollectionResult;
 import com.lostfound.capstonebackend.domain.lost112.dto.PythonDataSummary;
+import com.lostfound.capstonebackend.domain.seoul.SeoulLostService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,12 +16,15 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.File;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -39,6 +43,7 @@ public class AdminController {
 
     private final Lost112ImportService lost112ImportService;
     private final Lost112ApiService lost112ApiService;
+    private final SeoulLostService seoulLostService;
 
     /**
      * LOST112 API를 통해 분실물 데이터를 수집하고 데이터베이스에 저장합니다.
@@ -470,5 +475,42 @@ public class AdminController {
 
             return ApiResponse.ok(status);
         }
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/seoul/import")
+    public ResponseEntity<Map<String, Object>> importSeoulData() {
+        int imported = seoulLostService.importSeoulLostItems();
+        return ResponseEntity.ok(Map.of(
+                "source", "SEOUL_LOST",
+                "imported", imported
+        ));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/import-all")
+    public ResponseEntity<Map<String, Object>> importAllSources() {
+        Map<String, Integer> results = new HashMap<>();
+
+        try {
+            var lost112Result = lost112ImportService.importLost112Data();
+            results.put("LOST112", lost112Result.getNewlyCreated());
+        } catch (Exception e) {
+            log.error("LOST112 통합 수집 실패", e);
+            results.put("LOST112", 0);
+        }
+
+        try {
+            results.put("SEOUL_LOST", seoulLostService.importSeoulLostItems());
+        } catch (Exception e) {
+            log.error("서울시 분실물 통합 수집 실패", e);
+            results.put("SEOUL_LOST", 0);
+        }
+
+        int total = results.values().stream().mapToInt(Integer::intValue).sum();
+        Map<String, Object> response = new LinkedHashMap<>();
+        results.forEach(response::put);
+        response.put("total", total);
+        return ResponseEntity.ok(response);
     }
 }

@@ -146,3 +146,8 @@ CLAUDE_fixed.md
 # 기타 개발 임시 파일
 workflow_*.md
 code_analysis_*.md
+application-dev.yml
+application-local.yml
+.env
+.env.local
+.env.*.local

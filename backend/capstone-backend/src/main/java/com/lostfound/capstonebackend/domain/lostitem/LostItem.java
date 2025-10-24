@@ -76,10 +76,22 @@ public class LostItem {
     private String externalId;
 
     /**
+     * 외부 데이터에서 제공되는 조회수입니다.
+     */
+    @Column(name = "view_count")
+    private Integer viewCount;
+
+    /**
+     * 외부 데이터에서 수령이 완료된 일시를 나타냅니다.
+     */
+    @Column(name = "received_date")
+    private LocalDateTime receivedDate;
+
+    /**
      * 데이터의 출처 (사용자 직접 등록 또는 외부 시스템)
      */
     @Enumerated(EnumType.STRING)
-    @Column(name = "data_source", nullable = false)
+    @Column(name = "datasource", nullable = false)
     @Builder.Default
     private DataSource dataSource = DataSource.USER;
 
@@ -129,36 +141,21 @@ public class LostItem {
      * 분실물의 현재 상태를 나타내는 열거형입니다.
      */
     public enum Status {
-        /** 발견되었으나 아직 주인이 찾아가지 않은 상태 */
-        FOUND("발견됨"),
-        /** 주인이 찾아간 상태 */
-        CLAIMED("수령됨"),
-        /** 보관 기간이 만료된 상태 */
-        EXPIRED("만료됨");
-
-        @Getter
-        private final String description;
-
-        Status(String description) {
-            this.description = description;
-        }
+        FOUND,
+        CLAIMED,
+        EXPIRED,
+        STORED,
+        RETURNED,
+        DISPOSED
     }
 
     /**
      * 분실물 데이터의 출처를 나타내는 열거형입니다.
      */
     public enum DataSource {
-        /** 사용자가 직접 시스템에 등록한 데이터 */
-        USER("사용자 등록"),
-        /** LOST112 API를 통해 수집된 외부 데이터 */
-        LOST112("LOST112 API");
-
-        @Getter
-        private final String description;
-
-        DataSource(String description) {
-            this.description = description;
-        }
+        USER,
+        LOST112,
+        SEOUL_LOST
     }
 
     /**

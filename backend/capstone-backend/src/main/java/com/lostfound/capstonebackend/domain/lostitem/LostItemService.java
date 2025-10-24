@@ -9,6 +9,7 @@ import com.lostfound.capstonebackend.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -259,5 +260,113 @@ public class LostItemService {
         } catch (IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "잘못된 상태값입니다: " + status);
         }
+    }
+
+    // ========== 고도화된 검색 기능 추가 ==========
+
+    /**
+     * 지역(위치)별 분실물을 검색합니다.
+     * 습득 장소와 보관 장소 모두에서 검색됩니다.
+     * @param region 지역명 키워드
+     * @param pageable 페이지네이션 정보
+     * @return 해당 지역의 분실물 목록 페이지
+     */
+    public Page<LostItemResponse> searchByRegion(String region, Pageable pageable) {
+        if (region == null || region.trim().isEmpty()) {
+            return findAll(pageable);
+        }
+        
+        return lostItemRepository.findByRegion(region.trim(), pageable)
+                .map(LostItemResponse::from);
+    }
+
+    /**
+     * 색상별 분실물을 검색합니다.
+     * @param color 색상 키워드 (대소문자 구분 없음)
+     * @param pageable 페이지네이션 정보
+     * @return 해당 색상의 분실물 목록 페이지
+     */
+    public Page<LostItemResponse> searchByColor(String color, Pageable pageable) {
+        if (color == null || color.trim().isEmpty()) {
+            return findAll(pageable);
+        }
+        
+        return lostItemRepository.findByColorContainingIgnoreCase(color.trim(), pageable)
+                .map(LostItemResponse::from);
+    }
+
+    /**
+     * 전체 텍스트 검색을 수행합니다.
+     * 제목, 설명, 카테고리, 색상, 위치 모든 필드에서 검색합니다.
+     * @param searchText 검색할 텍스트
+     * @param pageable 페이지네이션 정보
+     * @return 검색된 분실물 목록 페이지
+     */
+    public Page<LostItemResponse> searchByFullText(String searchText, Pageable pageable) {
+        if (searchText == null || searchText.trim().isEmpty()) {
+            return findAll(pageable);
+        }
+        
+        return lostItemRepository.findByFullTextSearch(searchText.trim(), pageable)
+                .map(LostItemResponse::from);
+    }
+
+    /**
+     * 특정 상태의 최근 분실물을 조회합니다.
+     * @param status 분실물 상태
+     * @param limit 조회할 개수
+     * @return 해당 상태의 최근 분실물 목록
+     */
+    public List<LostItemResponse> findRecentItemsByStatus(String status, int limit) {
+        try {
+            LostItem.Status statusEnum = LostItem.Status.valueOf(status.toUpperCase());
+            Pageable pageable = PageRequest.of(0, limit);
+            return lostItemRepository.findRecentByStatus(statusEnum, pageable)
+                    .stream()
+                    .map(LostItemResponse::from)
+                    .toList();
+        } catch (IllegalArgumentException e) {
+            log.warn("잘못된 상태값으로 최근 분실물 조회 시도: {}", status);
+            return List.of();
+        }
+    }
+
+    /**
+     * 특정 기간 동안 등록된 분실물을 조회합니다. (생성일 기준)
+     * @param startDate 시작일
+     * @param endDate 종료일
+     * @param pageable 페이지네이션 정보
+     * @return 해당 기간의 분실물 목록 페이지
+     */
+    public Page<LostItemResponse> findByDateRange(LocalDate startDate, LocalDate endDate, Pageable pageable) {
+        if (startDate == null && endDate == null) {
+            return findAll(pageable);
+        }
+        
+        // LocalDate를 LocalDateTime으로 변환 (시작일은 00:00:00, 종료일은 23:59:59)
+        var startDateTime = startDate != null ? startDate.atStartOfDay() : null;
+        var endDateTime = endDate != null ? endDate.atTime(23, 59, 59) : null;
+        
+        if (startDateTime == null) {
+            startDateTime = java.time.LocalDateTime.MIN;
+        }
+        if (endDateTime == null) {
+            endDateTime = java.time.LocalDateTime.MAX;
+        }
+        
+        return lostItemRepository.findByCreatedAtBetween(startDateTime, endDateTime, pageable)
+                .map(LostItemResponse::from);
+    }
+
+    /**
+     * 현재 로그인한 사용자의 분실물 상태별 통계를 조회합니다.
+     * @param userEmail 사용자 이메일
+     * @return [상태, 개수] 형태의 통계 목록
+     */
+    public List<Object[]> getMyStatusStatistics(String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "사용자를 찾을 수 없습니다."));
+        
+        return lostItemRepository.getStatusStatisticsByOwner(user.getId());
     }
 }
