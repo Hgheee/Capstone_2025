@@ -219,7 +219,9 @@ class AuthControllerTest {
                 .email(email)
                 .name("기존")
                 .build();
-        UserUpdateRequest request = new UserUpdateRequest("새 이름", "010-2222-3333");
+        UserUpdateRequest request = new UserUpdateRequest();
+        request.setName("새 이름");
+        request.setPhone("010-2222-3333");
         UserResponse updated = UserResponse.builder()
                 .id(5L)
                 .email(email)
