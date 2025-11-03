@@ -151,11 +151,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
 
-        // 아래 경로들은 JWT 인증 필터를 거치지 않음
+        // 아래 경로들은 JWT 인증 필터를 거치지 않음 (공개 API)
         return path.equals("/") ||
                 path.startsWith("/api/health") ||
                 path.equals("/api/auth/login") ||
                 path.equals("/api/auth/signup") ||
+                path.startsWith("/api/lost-items") ||  // ✅ 분실물 조회 API 추가
                 path.startsWith("/swagger-ui/") ||
                 path.startsWith("/v3/api-docs/") ||
                 path.equals("/favicon.ico") ||

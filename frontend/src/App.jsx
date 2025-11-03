@@ -5,6 +5,7 @@ import Layout from "./components/Layout.jsx";
 
 //페이지 컴포넌트
 import Home from "./pages/Home.jsx";
+import Search from "./pages/Search.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import NotFound from "./pages/NotFound.jsx";
@@ -20,6 +21,7 @@ export default function App() {
 
         {/* 페이지 라우트 */}
         <Route path="/home" element={<Home />} />
+        <Route path="/search" element={<Search />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
