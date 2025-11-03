@@ -58,23 +58,25 @@ class LostItemServiceTest {
     }
 
     @Test
-    @DisplayName("ID로 분실물 조회 - 성공")
+    @DisplayName("ID로 분실물 조회 - 성공 (N+1 쿼리 방지)")
     void findByIdSuccess() {
         // Given
         LostItem item = buildItem(2L, "휴대폰", LostItem.DataSource.USER, "owner@example.com");
-        given(lostItemRepository.findById(2L)).willReturn(Optional.of(item));
+        given(lostItemRepository.findByIdWithOwner(2L)).willReturn(Optional.of(item));
 
         // When
         LostItemResponse response = lostItemService.findById(2L);
 
         // Then
         assertThat(response.title()).isEqualTo("휴대폰");
+        verify(lostItemRepository).findByIdWithOwner(2L);
+        verify(lostItemRepository, never()).findById(anyLong());
     }
 
     @Test
     @DisplayName("ID로 분실물 조회 - 실패")
     void findByIdNotFound() {
-        given(lostItemRepository.findById(99L)).willReturn(Optional.empty());
+        given(lostItemRepository.findByIdWithOwner(99L)).willReturn(Optional.empty());
         assertThatThrownBy(() -> lostItemService.findById(99L))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")

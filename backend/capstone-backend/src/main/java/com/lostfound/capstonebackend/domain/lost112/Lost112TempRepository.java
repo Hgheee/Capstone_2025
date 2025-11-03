@@ -6,11 +6,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 /**
  * 임시 분실물 데이터({@link Lost112TempEntity})에 대한 데이터베이스 작업을 처리하는 리포지토리입니다.
  */
-public interface Lost112TempRepository extends JpaRepository<Lost112TempEntity, String> {
+public interface Lost112TempRepository extends JpaRepository<Lost112TempEntity, Long> {
 
     /**
      * 임시 테이블에 저장된 모든 항목의 총 개수를 반환합니다.
@@ -34,4 +35,11 @@ public interface Lost112TempRepository extends JpaRepository<Lost112TempEntity, 
      * @return 해당 조건에 맞는 임시 분실물 데이터 페이지
      */
     Page<Lost112TempEntity> findByFoundDateAfter(LocalDate foundDate, Pageable pageable);
+
+    /**
+     * 원본 관리 ID를 기준으로 단일 항목을 조회합니다.
+     * @param itemId 관리 ID
+     * @return 존재하는 경우 엔티티
+     */
+    Optional<Lost112TempEntity> findByItemId(String itemId);
 }

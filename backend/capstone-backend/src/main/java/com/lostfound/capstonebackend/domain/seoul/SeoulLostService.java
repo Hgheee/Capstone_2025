@@ -1,6 +1,7 @@
 package com.lostfound.capstonebackend.domain.seoul;
 
 import com.lostfound.capstonebackend.domain.lostitem.LostItem;
+import com.lostfound.capstonebackend.domain.lostitem.LostItemRepository;
 import com.lostfound.capstonebackend.domain.seoul.dto.SeoulLostResponse;
 import com.lostfound.capstonebackend.domain.seoul.dto.SeoulLostRow;
 import java.sql.Date;
@@ -12,9 +13,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -41,13 +45,16 @@ public class SeoulLostService {
     private static final Map<String, String> CATEGORY_MAP = createCategoryMap();
 
     private final JdbcTemplate jdbcTemplate;
+    private final LostItemRepository lostItemRepository;
     private final RestTemplate restTemplate;
     private final String apiKey;
 
     public SeoulLostService(JdbcTemplate jdbcTemplate,
+                            LostItemRepository lostItemRepository,
                             RestTemplateBuilder restTemplateBuilder,
                             @Value("${api.seoul.key}") String apiKey) {
         this.jdbcTemplate = jdbcTemplate;
+        this.lostItemRepository = lostItemRepository;
         this.restTemplate = restTemplateBuilder
                 .requestFactory(this::createRequestFactory)
                 .build();
@@ -84,7 +91,25 @@ public class SeoulLostService {
             return 0;
         }
 
+        // 🔥 배치 중복 체크: 모든 externalId 수집
+        List<String> externalIds = rows.stream()
+                .filter(row -> row != null && StringUtils.hasText(row.getLostMngNo()))
+                .map(row -> row.getLostMngNo().trim())
+                .collect(Collectors.toList());
+
+        // 서울시 데이터 소스로 이미 DB에 존재하는 externalId 조회
+        List<String> existingIds = lostItemRepository.findExternalIdsByDataSourceAndExternalIdIn(
+                LostItem.DataSource.SEOUL_LOST,
+                externalIds
+        );
+        Set<String> existingIdSet = new HashSet<>(existingIds);
+
+        log.info("서울시 중복 체크 완료 - 수신: {}건, 기존 DB: {}건, 신규 예상: {}건",
+                externalIds.size(), existingIds.size(), externalIds.size() - existingIds.size());
+
         List<LostItem> items = new ArrayList<>(rows.size());
+        int duplicateSkipped = 0;
+
         for (SeoulLostRow row : rows) {
             if (row == null) {
                 continue;
@@ -95,6 +120,12 @@ public class SeoulLostService {
                 continue;
             }
 
+            // 중복 체크: 배치 조회 결과 활용
+            if (existingIdSet.contains(rawExternalId.trim())) {
+                duplicateSkipped++;
+                continue;
+            }
+
             items.add(convertToEntity(row));
         }
 
@@ -102,7 +133,8 @@ public class SeoulLostService {
             batchInsertLostItems(items);
         }
 
-        log.info("서울시 분실물 수집 완료 - 총 {}건 수신, 저장: {}건", rows.size(), items.size());
+        log.info("서울시 분실물 수집 완료 - 총 {}건 수신, 신규 저장: {}건, 중복 건너뜀: {}건",
+                rows.size(), items.size(), duplicateSkipped);
         return items.size();
     }
 

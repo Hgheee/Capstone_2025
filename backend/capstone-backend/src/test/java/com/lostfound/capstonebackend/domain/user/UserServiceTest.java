@@ -52,6 +52,7 @@ class UserServiceTest {
     @BeforeEach
     void setUp() {
         signupRequest = new SignupRequest();
+        signupRequest.setUsername("testuser");
         signupRequest.setEmail("test@example.com");
         signupRequest.setPassword("test123!");
         signupRequest.setName("테스트사용자");
@@ -62,10 +63,12 @@ class UserServiceTest {
         loginRequest.setPassword("test123!");
 
         testUser = User.builder()
+                .username("testuser")
                 .email("test@example.com")
                 .password("encoded_password")
                 .name("테스트사용자")
                 .phone("010-1234-5678")
+                .role(UserRole.USER)
                 .build();
     }
 
@@ -74,6 +77,8 @@ class UserServiceTest {
     void signup_Success() {
         // Given
         given(userRepository.existsByEmail(signupRequest.getEmail())).willReturn(false);
+        given(userRepository.existsByUsername(signupRequest.getUsername())).willReturn(false);
+        given(userRepository.count()).willReturn(1L); // 첫 사용자 아님
         given(passwordEncoder.encode(signupRequest.getPassword())).willReturn("encoded_password");
         given(userRepository.save(any(User.class))).willReturn(testUser);
 
@@ -84,8 +89,10 @@ class UserServiceTest {
         assertThat(result.getEmail()).isEqualTo(signupRequest.getEmail());
         assertThat(result.getName()).isEqualTo(signupRequest.getName());
         assertThat(result.getPhone()).isEqualTo(signupRequest.getPhone());
+        assertThat(result.getRole()).isEqualTo(UserRole.USER); // 첫 사용자 아니므로 USER 역할
 
         verify(userRepository).existsByEmail(signupRequest.getEmail());
+        verify(userRepository).existsByUsername(signupRequest.getUsername());
         verify(passwordEncoder).encode(signupRequest.getPassword());
         verify(userRepository).save(any(User.class));
     }
@@ -295,7 +302,7 @@ class UserServiceTest {
         Long userId = 1L;
         PasswordChangeRequest passwordRequest = new PasswordChangeRequest(
                 "wrongPassword", "newPassword123!", "newPassword123!");
-        
+
         given(userRepository.findById(userId)).willReturn(Optional.of(testUser));
         given(passwordEncoder.matches("wrongPassword", testUser.getPassword())).willReturn(false);
 
@@ -308,5 +315,77 @@ class UserServiceTest {
         verify(passwordEncoder).matches("wrongPassword", testUser.getPassword());
         verify(passwordEncoder, never()).encode(anyString());
         verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("회원가입 실패 - 아이디(username) 중복")
+    void signup_Fail_UsernameAlreadyExists() {
+        // Given
+        given(userRepository.existsByEmail(signupRequest.getEmail())).willReturn(false);
+        given(userRepository.existsByUsername(signupRequest.getUsername())).willReturn(true);
+
+        // When & Then
+        assertThatThrownBy(() -> userService.signup(signupRequest))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USERNAME_ALREADY_EXISTS);
+
+        verify(userRepository).existsByEmail(signupRequest.getEmail());
+        verify(userRepository).existsByUsername(signupRequest.getUsername());
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("회원가입 성공 - 첫 사용자는 ADMIN 권한 부여")
+    void signup_FirstUser_AssignAdminRole() {
+        // Given
+        given(userRepository.existsByEmail(signupRequest.getEmail())).willReturn(false);
+        given(userRepository.existsByUsername(signupRequest.getUsername())).willReturn(false);
+        given(userRepository.count()).willReturn(0L); // 첫 사용자
+        given(passwordEncoder.encode(signupRequest.getPassword())).willReturn("encoded_password");
+
+        User adminUser = User.builder()
+                .username("testuser")
+                .email("test@example.com")
+                .password("encoded_password")
+                .name("테스트사용자")
+                .phone("010-1234-5678")
+                .role(UserRole.ADMIN)
+                .build();
+        given(userRepository.save(any(User.class))).willReturn(adminUser);
+
+        // When
+        UserResponse result = userService.signup(signupRequest);
+
+        // Then
+        assertThat(result.getRole()).isEqualTo(UserRole.ADMIN); // 첫 사용자이므로 ADMIN 역할
+        verify(userRepository).count();
+    }
+
+    @Test
+    @DisplayName("전화번호 정규화 테스트 - 하이픈 없는 번호")
+    void signup_NormalizePhoneNumber() {
+        // Given
+        signupRequest.setPhone("01012345678"); // 하이픈 없음
+        given(userRepository.existsByEmail(signupRequest.getEmail())).willReturn(false);
+        given(userRepository.existsByUsername(signupRequest.getUsername())).willReturn(false);
+        given(userRepository.count()).willReturn(1L);
+        given(passwordEncoder.encode(signupRequest.getPassword())).willReturn("encoded_password");
+
+        User userWithNormalizedPhone = User.builder()
+                .username("testuser")
+                .email("test@example.com")
+                .password("encoded_password")
+                .name("테스트사용자")
+                .phone("010-1234-5678") // 정규화된 형식
+                .role(UserRole.USER)
+                .build();
+        given(userRepository.save(any(User.class))).willReturn(userWithNormalizedPhone);
+
+        // When
+        UserResponse result = userService.signup(signupRequest);
+
+        // Then
+        assertThat(result.getPhone()).isEqualTo("010-1234-5678"); // 하이픈 추가됨
     }
 }

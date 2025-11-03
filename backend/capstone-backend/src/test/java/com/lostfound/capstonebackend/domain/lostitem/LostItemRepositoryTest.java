@@ -144,6 +144,7 @@ class LostItemRepositoryTest {
 
     private void persistItem(String title, String description, String location, String category, LostItem.Status status, LocalDate foundDate) {
         User owner = User.builder()
+                .username(title.toLowerCase().replaceAll("\\s+", "")) // title을 username으로 변환
                 .email(title + "@example.com")
                 .password("encoded")
                 .name("사용자")

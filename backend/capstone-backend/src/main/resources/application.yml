@@ -3,9 +3,9 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 
   datasource:
-    url: jdbc:mysql://localhost:3306/capstonedb?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-    username: root
-    password: <현재 비밀번호>
+    url: ${DB_URL:jdbc:mysql://localhost:3306/capstone_db?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD}
 
   jpa:
     hibernate:
@@ -22,5 +22,17 @@ api:
   seoul:
     key: ${SEOUL_API_KEY}
 
-
-
+# LOST112 API 설정
+lost112:
+  api:
+    base-url: ${LOST112_BASE_URL:https://apis.data.go.kr/1320000/LosfundInfoInqireService}
+    api-key: ${LOST112_API_KEY}
+  page:
+    size: ${LOST112_PAGE_SIZE:100}
+    sleep-ms: ${LOST112_PAGE_SLEEP_MS:500}
+  timeouts:
+    connect-ms: ${LOST112_CONNECT_TIMEOUT_MS:5000}
+    read-ms: ${LOST112_READ_TIMEOUT_MS:30000}
+  retry:
+    max-attempts: ${LOST112_RETRY_MAX_ATTEMPTS:3}
+    delay-ms: ${LOST112_RETRY_DELAY_MS:1000}

@@ -205,7 +205,7 @@ class UserServiceTest {
         // Given
         User user = buildUser(7L, "user@example.com", "encoded", UserRole.USER);
         user.updateUserInfo("기존", "010-0000-0000");
-        UserUpdateRequest request = new UserUpdateRequest("수정", "010-1234-5678");
+        UserUpdateRequest request = new UserUpdateRequest("updateduser", "수정", "010-1234-5678");
         given(userRepository.findById(7L)).willReturn(Optional.of(user));
         given(userRepository.save(user)).willReturn(user);
 
@@ -222,7 +222,7 @@ class UserServiceTest {
     @DisplayName("사용자 정보 수정 - 대상 없음")
     void updateUserNotFound() {
         // Given
-        UserUpdateRequest request = new UserUpdateRequest("수정", "010-1234-5678");
+        UserUpdateRequest request = new UserUpdateRequest("updateduser", "수정", "010-1234-5678");
         given(userRepository.findById(99L)).willReturn(Optional.empty());
 
         // When & Then

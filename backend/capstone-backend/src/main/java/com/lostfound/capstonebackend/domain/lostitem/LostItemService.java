@@ -190,7 +190,7 @@ public class LostItemService {
      * @return 검색된 분실물 목록 페이지
      */
     public Page<LostItemResponse> searchComplex(String keyword, String category, String status,
-                                              LocalDate fromDate, LocalDate toDate, Pageable pageable) {
+                                                LocalDate fromDate, LocalDate toDate, Pageable pageable) {
         LostItem.Status statusEnum = null;
         if (status != null && !status.trim().isEmpty()) {
             try {
@@ -275,7 +275,7 @@ public class LostItemService {
         if (region == null || region.trim().isEmpty()) {
             return findAll(pageable);
         }
-        
+
         return lostItemRepository.findByRegion(region.trim(), pageable)
                 .map(LostItemResponse::from);
     }
@@ -290,7 +290,7 @@ public class LostItemService {
         if (color == null || color.trim().isEmpty()) {
             return findAll(pageable);
         }
-        
+
         return lostItemRepository.findByColorContainingIgnoreCase(color.trim(), pageable)
                 .map(LostItemResponse::from);
     }
@@ -306,7 +306,7 @@ public class LostItemService {
         if (searchText == null || searchText.trim().isEmpty()) {
             return findAll(pageable);
         }
-        
+
         return lostItemRepository.findByFullTextSearch(searchText.trim(), pageable)
                 .map(LostItemResponse::from);
     }
@@ -342,18 +342,18 @@ public class LostItemService {
         if (startDate == null && endDate == null) {
             return findAll(pageable);
         }
-        
+
         // LocalDate를 LocalDateTime으로 변환 (시작일은 00:00:00, 종료일은 23:59:59)
         var startDateTime = startDate != null ? startDate.atStartOfDay() : null;
         var endDateTime = endDate != null ? endDate.atTime(23, 59, 59) : null;
-        
+
         if (startDateTime == null) {
             startDateTime = java.time.LocalDateTime.MIN;
         }
         if (endDateTime == null) {
             endDateTime = java.time.LocalDateTime.MAX;
         }
-        
+
         return lostItemRepository.findByCreatedAtBetween(startDateTime, endDateTime, pageable)
                 .map(LostItemResponse::from);
     }
@@ -366,7 +366,7 @@ public class LostItemService {
     public List<Object[]> getMyStatusStatistics(String userEmail) {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "사용자를 찾을 수 없습니다."));
-        
+
         return lostItemRepository.getStatusStatisticsByOwner(user.getId());
     }
 }

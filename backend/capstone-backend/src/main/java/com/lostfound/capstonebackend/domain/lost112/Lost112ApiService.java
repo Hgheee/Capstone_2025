@@ -1,5 +1,7 @@
 package com.lostfound.capstonebackend.domain.lost112;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lostfound.capstonebackend.config.Lost112Properties;
 import com.lostfound.capstonebackend.domain.lost112.dto.Lost112ItemDto;
 import com.lostfound.capstonebackend.domain.lost112.dto.Lost112ResponseDto;
@@ -12,149 +14,233 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.netty.http.client.HttpClient;
 
+import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayList;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 /**
- * 경찰청 유실물 종합관리시스템(LOST112)의 외부 API와 통신하여 데이터를 가져오는 서비스입니다.
- * WebClient를 사용하여 비동기 방식으로 API를 호출합니다.
+ * LOST112 외부 API 호출을 담당하는 서비스.
  */
 @Service
 @Slf4j
 public class Lost112ApiService {
 
+    private static final String ENDPOINT_PATH = "/getLosfundInfoAccToClAreaPd";
+    private static final DateTimeFormatter BASIC_DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
+
     private final Lost112Properties lost112Properties;
     private final WebClient webClient;
+    private final ObjectMapper objectMapper;
 
-    /**
-     * Lost112ApiService 생성자입니다.
-     * WebClient를 초기화하며, 연결 및 응답 시간 초과 설정을 application.yml의 값으로 구성합니다.
-     * @param lost112Properties LOST112 API 관련 설정 정보
-     * @param webClientBuilder WebClient 생성을 위한 빌더
-     */
-    public Lost112ApiService(Lost112Properties lost112Properties, WebClient.Builder webClientBuilder) {
+    public Lost112ApiService(Lost112Properties lost112Properties,
+                             WebClient.Builder webClientBuilder,
+                             ObjectMapper objectMapper) {
         this.lost112Properties = lost112Properties;
+        this.objectMapper = objectMapper;
+
         HttpClient httpClient = HttpClient.create()
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, lost112Properties.getTimeouts().getConnectMs())
                 .responseTimeout(Duration.ofMillis(lost112Properties.getTimeouts().getReadMs()));
 
         this.webClient = webClientBuilder
+                .baseUrl(Objects.requireNonNull(lost112Properties.getBaseUrl(), "LOST112 baseUrl must not be null"))
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .build();
     }
 
     /**
-     * LOST112 API를 호출하여 특정 페이지의 분실물 데이터를 가져옵니다.
-     * @param pageNo 조회할 페이지 번호
-     * @param numOfRows 한 페이지에 포함될 데이터의 수
-     * @return API로부터 받은 분실물 데이터 리스트. 응답이 없거나 에러 발생 시 빈 리스트를 반환합니다.
+     * 지정한 조건의 단일 페이지를 호출한다.
      */
-    public List<Lost112ItemDto> fetchLostItems(int pageNo, int numOfRows) {
-        try {
-            String url = buildApiUrl(pageNo, numOfRows);
-            log.info("LOST112 API 호출: {}", url);
-
-            // WebClient를 사용하여 비동기 API 호출 및 응답을 동기적으로 대기
-            Lost112ResponseDto response = webClient.get()
-                    .uri(url)
-                    .retrieve()
-                    .bodyToMono(Lost112ResponseDto.class)
-                    .block(Duration.ofMillis(lost112Properties.getTimeouts().getReadMs()));
-
-            // API 응답 유효성 검사
-            if (response == null || response.getResponse() == null) {
-                log.warn("LOST112 API로부터 유효하지 않은 응답을 받았습니다.");
-                return new ArrayList<>();
-            }
-
-            // API 자체 헤더의 결과 코드 확인
-            Lost112ResponseDto.Header header = response.getResponse().getHeader();
-            if (!"00".equals(header.getResultCode())) {
-                log.error("LOST112 API 오류: 코드={}, 메시지={}", header.getResultCode(), header.getResultMsg());
-                return new ArrayList<>();
-            }
-
-            // 실제 데이터(body) 존재 여부 확인
-            Lost112ResponseDto.Body body = response.getResponse().getBody();
-            if (body == null || body.getItems() == null || body.getItems().getItem() == null) {
-                log.info("LOST112 API: 페이지 {}에 데이터가 없습니다.", pageNo);
-                return new ArrayList<>();
-            }
-
-            List<Lost112ItemDto> items = body.getItems().getItem();
-            log.info("LOST112 API: {}개의 아이템을 가져왔습니다.", items.size());
-
-            return items;
-
-        } catch (WebClientResponseException e) {
-            log.error("LOST112 API HTTP 오류: 상태코드={}, 응답바디={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
-            return new ArrayList<>();
-        } catch (Exception e) {
-            log.error("LOST112 API 호출 중 알 수 없는 오류 발생", e);
-            return new ArrayList<>();
-        }
+    public Lost112PageResult fetchPage(LocalDate startDate,
+                                       LocalDate endDate,
+                                       String regionCode,
+                                       int pageNo,
+                                       int numOfRows) {
+        Supplier<Lost112PageResult> supplier = () -> doFetchPage(startDate, endDate, regionCode, pageNo, numOfRows);
+        return executeWithRetry(supplier);
     }
 
     /**
-     * LOST112 API의 모든 분실물 데이터를 가져옵니다.
-     * 데이터가 더 이상 없을 때까지 페이지를 순차적으로 호출하여 모든 데이터를 수집합니다.
-     * API 과부하를 방지하기 위해 각 페이지 요청 사이에 지연 시간(sleep)을 둡니다.
-     * 무한 루프를 방지하기 위해 최대 100페이지까지만 조회합니다.
-     * @return API로부터 수집된 모든 분실물 데이터 리스트
+     * 지정된 기간과 지역에 대해 모든 페이지를 순회하면서 데이터를 수집한다.
      */
-    public List<Lost112ItemDto> fetchAllLostItems() {
-        List<Lost112ItemDto> allItems = new ArrayList<>();
+    public List<Lost112ItemDto> fetchAll(LocalDate startDate,
+                                         LocalDate endDate,
+                                         String regionCode) {
+        int pageSize = Math.min(Math.max(lost112Properties.getPage().getSize(), 1), 100);
+        int sleepMs = Math.max(lost112Properties.getPage().getSleepMs(), 0);
+
         int pageNo = 1;
-        int pageSize = lost112Properties.getPage().getSize();
-        int sleepMs = lost112Properties.getPage().getSleepMs();
+        int totalCount = Integer.MAX_VALUE;
+        List<Lost112ItemDto> allItems = new java.util.ArrayList<>();
 
-        while (true) {
-            List<Lost112ItemDto> pageItems = fetchLostItems(pageNo, pageSize);
-
+        while ((pageNo - 1) * pageSize < totalCount) {
+            Lost112PageResult pageResult = fetchPage(startDate, endDate, regionCode, pageNo, pageSize);
+            List<Lost112ItemDto> pageItems = pageResult.items();
             if (pageItems.isEmpty()) {
-                log.info("LOST112 데이터 수집 완료. 총 {}개 아이템 수집.", allItems.size());
+                log.info("LOST112 {}페이지에 더 이상 데이터가 없어 수집을 종료합니다.", pageNo);
                 break;
             }
 
             allItems.addAll(pageItems);
-            log.info("LOST112 페이지 {} 병합 완료. 누적 아이템 수: {}", pageNo, allItems.size());
+            totalCount = pageResult.totalCount();
 
+            log.info("LOST112 {}페이지 수집 완료 (누적: {}, 전체: {})", pageNo, allItems.size(), totalCount);
             pageNo++;
 
-            // API 서버 부하를 줄이기 위한 요청 간 지연
-            try {
-                Thread.sleep(sleepMs);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.warn("LOST112 데이터 수집 중단됨");
-                break;
-            }
-
-            // 무한 페이지 조회를 방지하기 위한 안전 장치
-            if (pageNo > 100) {
-                log.warn("최대 페이지 제한(100)에 도달하여 수집을 중단합니다.");
-                break;
+            if (sleepMs > 0 && (pageNo - 1) * pageSize < totalCount) {
+                try {
+                    TimeUnit.MILLISECONDS.sleep(sleepMs);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.warn("LOST112 페이지네이션 대기 중 인터럽트 발생, 수집을 중단합니다.");
+                    break;
+                }
             }
         }
 
         return allItems;
     }
 
-    /**
-     * LOST112 API 요청을 위한 전체 URL을 생성합니다.
-     * @param pageNo 페이지 번호
-     * @param numOfRows 페이지 당 행 수
-     * @return API 명세에 맞는 완전한 URL 문자열
-     */
-    private String buildApiUrl(int pageNo, int numOfRows) {
-        return UriComponentsBuilder.fromHttpUrl(lost112Properties.getBaseUrl())
-                .path("/getLostGoodsInfoAccToClAreaPd")
+    private Lost112PageResult doFetchPage(LocalDate startDate,
+                                          LocalDate endDate,
+                                          String regionCode,
+                                          int pageNo,
+                                          int numOfRows) {
+        String requestUri = buildUri(startDate, endDate, regionCode, pageNo, numOfRows);
+        log.debug("LOST112 API 호출 URI={}", requestUri);
+
+        try {
+            String rawResponse = webClient.get()
+                    .uri(requestUri)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block(Duration.ofMillis(lost112Properties.getTimeouts().getReadMs()));
+            if (rawResponse == null || rawResponse.trim().isEmpty()) {
+                log.warn("LOST112 API 응답이 비어 있습니다. uri={}", requestUri);
+                return Lost112PageResult.empty(pageNo, numOfRows);
+            }
+
+            JsonNode root = objectMapper.readTree(rawResponse);
+            JsonNode responseNode = root.path("response");
+            if (responseNode.isMissingNode() || responseNode.isNull()) {
+                log.warn("LOST112 API 응답에 response 노드가 없습니다. uri={}", requestUri);
+                return Lost112PageResult.empty(pageNo, numOfRows);
+            }
+
+            JsonNode headerNode = responseNode.path("header");
+            if (headerNode.isMissingNode() || headerNode.isNull()) {
+                throw new IllegalStateException("LOST112 API 응답 헤더가 존재하지 않습니다.");
+            }
+
+            String resultCode = headerNode.path("resultCode").asText("");
+            if (!"00".equals(resultCode)) {
+                String resultMsg = headerNode.path("resultMsg").asText("UNKNOWN");
+                throw new IllegalStateException(
+                        "LOST112 API 오류 - 코드: " + resultCode + ", 메시지: " + resultMsg
+                );
+            }
+
+            JsonNode bodyNode = responseNode.get("body");
+            if (bodyNode == null || bodyNode.isNull() || (bodyNode.isTextual() && bodyNode.asText().trim().isEmpty())) {
+                log.info("LOST112 API 응답 본문이 비어 있습니다. uri={}", requestUri);
+                return Lost112PageResult.empty(pageNo, numOfRows);
+            }
+
+            Lost112ResponseDto.Body body = objectMapper.treeToValue(bodyNode, Lost112ResponseDto.Body.class);
+
+            int totalCount = Optional.ofNullable(body.getTotalCount()).orElse(0);
+            List<Lost112ItemDto> items = Optional.ofNullable(body.getItems())
+                    .map(Lost112ResponseDto.Items::getItem)
+                    .orElse(Collections.emptyList());
+
+            log.debug("LOST112 API 응답 - pageNo={}, numOfRows={}, totalCount={}, items={}",
+                    pageNo, numOfRows, totalCount, items.size());
+
+            return new Lost112PageResult(items, totalCount, pageNo, numOfRows);
+        } catch (WebClientResponseException e) {
+            log.error("LOST112 API HTTP 오류 - status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw e;
+        } catch (IOException e) {
+            log.warn("LOST112 API 응답 파싱 실패 - uri={}, message={}", requestUri, e.getMessage());
+            return Lost112PageResult.empty(pageNo, numOfRows);
+        } catch (RuntimeException e) {
+            log.warn("LOST112 API 응답 파싱 실패 (빈 응답 가능) - uri={}, message={}", requestUri, e.getMessage());
+            return Lost112PageResult.empty(pageNo, numOfRows);
+        }
+    }
+
+    private Lost112PageResult executeWithRetry(Supplier<Lost112PageResult> supplier) {
+        Lost112Properties.Retry retry = lost112Properties.getRetry();
+        int maxAttempts = Math.max(retry.getMaxAttempts(), 1);
+        long delayMs = Math.max(retry.getDelayMs(), 0L);
+
+        RuntimeException lastException = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                return supplier.get();
+            } catch (RuntimeException ex) {
+                lastException = ex;
+                if (attempt >= maxAttempts) {
+                    break;
+                }
+
+                log.warn("LOST112 API 호출 실패 (시도 {}/{}). {}ms 후 재시도합니다. 원인: {}",
+                        attempt, maxAttempts, delayMs, ex.getMessage());
+
+                if (delayMs > 0) {
+                    try {
+                        TimeUnit.MILLISECONDS.sleep(delayMs);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        log.warn("LOST112 재시도 대기 중 인터럽트 발생");
+                        throw new IllegalStateException("LOST112 API 재시도 중단", ex);
+                    }
+                }
+            }
+        }
+
+        throw lastException != null ? lastException : new IllegalStateException("LOST112 API 호출 실패");
+    }
+
+    private String buildUri(LocalDate startDate,
+                            LocalDate endDate,
+                            String regionCode,
+                            int pageNo,
+                            int numOfRows) {
+        String sanitizedRegionCode = Optional.ofNullable(regionCode).orElse("").trim();
+        return UriComponentsBuilder.fromPath(ENDPOINT_PATH)
                 .queryParam("serviceKey", lost112Properties.getApiKey())
+                .queryParam("START_YMD", BASIC_DATE_FORMAT.format(startDate))
+                .queryParam("END_YMD", BASIC_DATE_FORMAT.format(endDate))
+                .queryParam("NUM_OF_ROWS", Math.min(Math.max(numOfRows, 1), 100))
                 .queryParam("pageNo", pageNo)
-                .queryParam("numOfRows", Math.min(numOfRows, 100)) // API 최대 허용치는 100
-                .queryParam("type", "json")
-                .build()
+                .queryParam("LST_LCT_CD", sanitizedRegionCode)
+                .queryParam("_type", "json")
+                .build(true)
                 .toUriString();
+    }
+
+    /**
+     * 호환성을 위한 기본 수집 메서드 (당일, 전체 지역).
+     */
+    public List<Lost112ItemDto> fetchAllLostItems() {
+        LocalDate today = LocalDate.now();
+        return fetchAll(today, today, "");
+    }
+
+    /**
+     * 페이지 호출 결과를 담는 레코드.
+     */
+    public record Lost112PageResult(List<Lost112ItemDto> items, int totalCount, int pageNo, int numOfRows) {
+        public static Lost112PageResult empty(int pageNo, int numOfRows) {
+            return new Lost112PageResult(Collections.emptyList(), 0, pageNo, numOfRows);
+        }
     }
 }

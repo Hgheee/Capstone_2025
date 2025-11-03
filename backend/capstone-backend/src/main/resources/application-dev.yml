@@ -1,6 +1,10 @@
+# ================================
+# 개발 환경 설정
+# ================================
+
 api:
   seoul:
-    key: ${SEOUL_API_KEY:sample-seoul-api-key}
+    key: ${SEOUL_API_KEY}
 
 spring:
   datasource:
@@ -18,34 +22,30 @@ spring:
       max-lifetime: ${DB_HIKARI_MAX_LIFETIME:1800000}
 
   jpa:
-    # 🔥 핵심 설정: DB 초기화 문제 해결
     defer-datasource-initialization: true
     hibernate:
-      ddl-auto: none   # 개발 중엔 create-drop → update 로 변경 추천
+      ddl-auto: validate
     show-sql: ${SHOW_SQL:true}
     properties:
       hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
         format_sql: ${FORMAT_SQL:true}
-        # 성능 최적화
         jdbc:
           batch_size: 100
           order_inserts: true
           order_updates: true
-        # N+1 쿼리 문제 감지
         generate_statistics: false
-    open-in-view: false  # 성능 최적화 & Lazy 로딩 문제 방지
+    open-in-view: false
 
   sql:
     init:
       mode: always
-      continue-on-error: true  # 초기화 스크립트 오류 시에도 계속 진행
+      continue-on-error: true
 
-  # Week 4 확장: 웹 설정
   web:
     resources:
       add-mappings: true
 
-  # Week 4 확장: 파일 업로드
   servlet:
     multipart:
       max-file-size: ${MAX_FILE_SIZE:10MB}
@@ -53,13 +53,12 @@ spring:
 
 server:
   port: ${SERVER_PORT:8081}
-  # Week 4: 에러 페이지 설정
   error:
     include-exception: true
     include-message: always
     include-stacktrace: on_param
 
-# 로깅 레벨 - Week 4 확장
+# 로깅
 logging:
   level:
     root: ${LOG_LEVEL_ROOT:INFO}
@@ -75,10 +74,9 @@ logging:
       max-file-size: ${LOG_MAX_FILE_SIZE:10MB}
       max-history: ${LOG_MAX_HISTORY:30}
 
-# 디버그 모드 (애플리케이션 전체 상세 로그 필요할 때만 true)
 debug: ${ENABLE_DEBUG:false}
 
-# Management/Actuator - Week 4 모니터링
+# Management/Actuator
 management:
   endpoints:
     web:
@@ -92,51 +90,35 @@ management:
 
 # LOST112 API 설정
 lost112:
-  base-url: ${LOST112_BASE_URL}
-  api-key: ${LOST112_API_KEY}
-  timeouts:
-    connect-ms: ${LOST112_CONNECT_TIMEOUT_MS:2000}
-    read-ms: ${LOST112_READ_TIMEOUT_MS:8000}
+  api:
+    base-url: ${LOST112_BASE_URL:https://apis.data.go.kr/1320000/LosfundInfoInqireService}
+    api-key: ${LOST112_API_KEY}
   page:
-    size: ${LOST112_PAGE_SIZE:50}
-    sleep-ms: ${LOST112_PAGE_SLEEP_MS:300}
-  # Week 4 확장: 재시도 로직
+    size: ${LOST112_PAGE_SIZE:100}
+    sleep-ms: ${LOST112_PAGE_SLEEP_MS:500}
+  timeouts:
+    connect-ms: ${LOST112_CONNECT_TIMEOUT_MS:5000}
+    read-ms: ${LOST112_READ_TIMEOUT_MS:30000}
   retry:
-    max-attempts: ${LOST112_MAX_RETRY_COUNT:3}
+    max-attempts: ${LOST112_RETRY_MAX_ATTEMPTS:3}
     delay-ms: ${LOST112_RETRY_DELAY_MS:1000}
-  python:
-    enabled: ${LOST112_PYTHON_ENABLED:true}
-    executable: ${PYTHON_EXECUTABLE:python}
-    # 🔥 절대 경로로 수정!
-    script-path: ${LOST112_PYTHON_SCRIPT_PATH:C:/Users/User/Desktop/Capstone_2025/data/lost112_collect_and_sync_fast.py}
-    work-dir: ${LOST112_PYTHON_WORK_DIR:C:/Users/User/Desktop/Capstone_2025/data}
-    env-file: ${LOST112_PYTHON_ENV_FILE:C:/Users/User/Desktop/Capstone_2025/data/.env}
-    # output-dir 주석 처리 (Python 스크립트가 지원하지 않음)
-    # output-dir: ${LOST112_PYTHON_OUTPUT_DIR:../../data/out}
-    default-rows: ${LOST112_PYTHON_DEFAULT_ROWS:100}
-    default-max-pages: ${LOST112_PYTHON_DEFAULT_MAX_PAGES:20}
-    default-day-range: ${LOST112_PYTHON_DEFAULT_DAY_RANGE:7}
-    sleep-sec: ${LOST112_PYTHON_SLEEP_SEC:0.3}
-    default-concurrency: ${LOST112_PYTHON_DEFAULT_CONCURRENCY:2}
-    timeout-sec: ${LOST112_PYTHON_TIMEOUT_SEC:120}
-    max-output-chars: ${LOST112_PYTHON_MAX_OUTPUT_CHARS:200000}
 
-# Week 4 확장: JWT 토큰 설정
+# JWT 토큰
 jwt:
-  secret-key: ${JWT_SECRET_KEY:default-dev-jwt-secret-key-please-change-immediately-1234567890}
+  secret-key: ${JWT_SECRET_KEY}
   access-token:
     expiration: ${JWT_EXPIRATION_TIME:900000}
   refresh-token:
     expiration: ${JWT_REFRESH_EXPIRATION_TIME:604800000}
 
-# Week 4 확장: CORS 설정
+# CORS
 cors:
   allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
   allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,PATCH,OPTIONS}
   allowed-headers: ${CORS_ALLOWED_HEADERS:Content-Type,Authorization,X-Requested-With}
   max-age: ${CORS_MAX_AGE:3600}
 
-# Week 4 확장: 파일 업로드 설정
+# 파일 업로드
 file:
   upload:
     dir: ${UPLOAD_DIR:./uploads}
@@ -149,7 +131,7 @@ file:
       width: ${THUMBNAIL_WIDTH:300}
       height: ${THUMBNAIL_HEIGHT:200}
 
-# Week 4 확장: 캐시 설정
+# 캐시
 cache:
   type: ${CACHE_TYPE:simple}
   redis:
@@ -158,29 +140,29 @@ cache:
     timeout: ${REDIS_TIMEOUT:2000ms}
     database: ${REDIS_DATABASE:0}
 
-# Week 4 확장: 검색 엔진 설정
+# 검색
 search:
   min-word-length: ${SEARCH_MIN_WORD_LENGTH:2}
   max-results: ${SEARCH_MAX_RESULTS:1000}
   highlight-enabled: ${SEARCH_HIGHLIGHT_ENABLED:true}
   similarity-threshold: ${MATCHING_SIMILARITY_THRESHOLD:0.7}
 
-# Week 4 확장: 스케줄링 설정
+# 스케줄링
 scheduling:
   lost112-import: ${LOST112_IMPORT_SCHEDULE:0 0 2 * * ?}
   token-cleanup: ${TOKEN_CLEANUP_SCHEDULE:0 0 3 * * ?}
   file-cleanup: ${TEMP_FILE_CLEANUP_SCHEDULE:0 30 3 * * ?}
 
-# Week 4 확장: 알림 설정
+# 알림
 notification:
   email:
-    enabled: ${EMAIL_NOTIFICATIONS_ENABLED:true}
+    enabled: ${EMAIL_NOTIFICATIONS_ENABLED:false}
     template-path: ${NOTIFICATION_EMAIL_TEMPLATE_PATH:./templates/email}
   batch:
     size: ${NOTIFICATION_BATCH_SIZE:100}
     interval-ms: ${NOTIFICATION_BATCH_INTERVAL_MS:30000}
 
-# Week 4 확장: 외부 서비스 설정
+# 외부 서비스
 external:
   kakao:
     map-api-key: ${KAKAO_MAP_API_KEY:}
@@ -188,7 +170,7 @@ external:
     api-key: ${SMS_API_KEY:}
     sender-number: ${SMS_SENDER_NUMBER:}
 
-# Week 4 확장: 보안 강화
+# 보안
 security:
   rate-limit:
     requests-per-minute: ${RATE_LIMIT_REQUESTS_PER_MINUTE:100}
@@ -198,7 +180,7 @@ security:
     content-type-options: ${SECURITY_CONTENT_TYPE_OPTIONS:nosniff}
     xss-protection: ${SECURITY_XSS_PROTECTION:1; mode=block}
 
-# 개발 및 디버깅
+# 개발 전용
 development:
   performance-monitoring: ${ENABLE_PERFORMANCE_MONITORING:false}
   mock-data:

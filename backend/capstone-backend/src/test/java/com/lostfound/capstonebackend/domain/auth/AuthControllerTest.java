@@ -118,6 +118,7 @@ class AuthControllerTest {
     @DisplayName("회원가입 성공 - 201 반환")
     void signupSuccess() throws Exception {
         SignupRequest request = new SignupRequest();
+        request.setUsername("newuser");  // username 추가
         request.setEmail("new@example.com");
         request.setPassword("Newpass1!");
         request.setName("새 사용자");
@@ -141,6 +142,7 @@ class AuthControllerTest {
     @DisplayName("회원가입 실패 - 이메일 중복")
     void signupFailureDuplicateEmail() throws Exception {
         SignupRequest request = new SignupRequest();
+        request.setUsername("dupuser");  // username 추가
         request.setEmail("duplicate@example.com");
         request.setPassword("DupPass1!");
         request.setName("기존 사용자");
@@ -219,7 +221,7 @@ class AuthControllerTest {
                 .email(email)
                 .name("기존")
                 .build();
-        UserUpdateRequest request = new UserUpdateRequest("새 이름", "010-2222-3333");
+        UserUpdateRequest request = new UserUpdateRequest("newusername", "새 이름", "010-2222-3333");
         UserResponse updated = UserResponse.builder()
                 .id(5L)
                 .email(email)

@@ -33,7 +33,7 @@ public class User {
     private Long id;
 
     /** 로그인 아이디(username) */
-    @Column(nullable = false, length = 30)
+    @Column(name = "username", nullable = false, unique = true, length = 30)
     private String username;
 
     /** 로그인용 이메일 */

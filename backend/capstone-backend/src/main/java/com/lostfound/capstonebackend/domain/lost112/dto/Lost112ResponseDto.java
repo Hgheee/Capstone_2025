@@ -2,6 +2,13 @@ package com.lostfound.capstonebackend.domain.lost112.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.core.ObjectCodec;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import lombok.Data;
 
 import java.util.List;
@@ -36,6 +43,7 @@ public class Lost112ResponseDto {
          * 응답 본문
          */
         @JsonProperty("body")
+        @JsonDeserialize(using = BodyDeserializer.class)
         private Body body;
     }
 
@@ -103,5 +111,77 @@ public class Lost112ResponseDto {
          */
         @JsonProperty("item")
         private List<Lost112ItemDto> item;
+    }
+
+    /**
+     * LOST112 응답에서 body 필드가 빈 문자열인 경우 null 로 처리하기 위한 디시리얼라이저.
+     */
+    public static class BodyDeserializer extends StdDeserializer<Body> {
+
+        public BodyDeserializer() {
+            super(Body.class);
+        }
+
+        @Override
+        public Body deserialize(JsonParser p, DeserializationContext ctxt) throws java.io.IOException {
+            JsonToken token = p.currentToken();
+            if (token == JsonToken.VALUE_STRING) {
+                String text = p.getValueAsString();
+                if (text == null || text.trim().isEmpty()) {
+                    return null;
+                }
+            }
+
+            ObjectCodec codec = p.getCodec();
+            JsonNode node = codec.readTree(p);
+            if (node == null || node.isNull()) {
+                return null;
+            }
+            if (node.isTextual() && node.asText().trim().isEmpty()) {
+                return null;
+            }
+
+            Body body = new Body();
+
+            JsonNode itemsNode = node.get("items");
+            if (itemsNode != null && !itemsNode.isNull()) {
+                body.setItems(codec.treeToValue(itemsNode, Items.class));
+            }
+
+            JsonNode numOfRowsNode = node.get("numOfRows");
+            if (numOfRowsNode != null && !numOfRowsNode.isNull()) {
+                body.setNumOfRows(parseInteger(numOfRowsNode));
+            }
+
+            JsonNode pageNoNode = node.get("pageNo");
+            if (pageNoNode != null && !pageNoNode.isNull()) {
+                body.setPageNo(parseInteger(pageNoNode));
+            }
+
+            JsonNode totalCountNode = node.get("totalCount");
+            if (totalCountNode != null && !totalCountNode.isNull()) {
+                body.setTotalCount(parseInteger(totalCountNode));
+            }
+
+            return body;
+        }
+
+        private Integer parseInteger(JsonNode node) {
+            if (node.isInt() || node.isIntegralNumber()) {
+                return node.intValue();
+            }
+            if (node.isTextual()) {
+                String text = node.asText();
+                if (text == null || text.trim().isEmpty()) {
+                    return null;
+                }
+                try {
+                    return Integer.parseInt(text.trim());
+                } catch (NumberFormatException ignored) {
+                    return null;
+                }
+            }
+            return null;
+        }
     }
 }

@@ -108,6 +108,7 @@ class UserRepositoryTest {
 
     private User persistUser(String email, String name) {
         User user = User.builder()
+                .username(email.split("@")[0]) // 이메일 앞부분을 username으로 사용
                 .email(email)
                 .password("encoded")
                 .name(name)
