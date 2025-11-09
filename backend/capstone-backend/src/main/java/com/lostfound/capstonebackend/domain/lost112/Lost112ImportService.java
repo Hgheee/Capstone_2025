@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.node.MissingNode;
+import com.lostfound.capstonebackend.common.util.RegionUtil;
 import com.lostfound.capstonebackend.config.Lost112Properties;
 import com.lostfound.capstonebackend.domain.lost112.dto.Lost112ImportRequest;
 import com.lostfound.capstonebackend.domain.lost112.dto.Lost112ItemDto;
@@ -664,7 +665,28 @@ public class Lost112ImportService {
      * @return 변환된 엔티티
      */
     private LostItem convertToLostItem(Lost112ItemDto dto) {
-        return LostItem.builder().title(cleanString(dto.getFdPrdtNm())).description(cleanString(dto.getFdSbjt())).category(mapCategory(dto.getPrdtClNm())).location(cleanString(dto.getDepPlace())).foundDate(parseDate(dto.getFdYmd())).color(cleanString(dto.getClrNm())).storageLocation(cleanString(dto.getDepPlace())).imagePath(cleanString(dto.getFdFilePathImg())).externalId(dto.getAtcId()).dataSource(LostItem.DataSource.LOST112).status(LostItem.Status.FOUND).owner(null).build();
+        String title = cleanString(dto.getFdPrdtNm());
+        String location = cleanString(dto.getDepPlace());
+        String storageLocation = cleanString(dto.getDepPlace());
+        
+        // 지역 정보 추출 (title 포함)
+        String region = RegionUtil.extractRegionFromAll(title, location, storageLocation);
+        
+        return LostItem.builder()
+                .title(title)
+                .description(cleanString(dto.getFdSbjt()))
+                .category(mapCategory(dto.getPrdtClNm()))
+                .location(location)
+                .region(region)
+                .foundDate(parseDate(dto.getFdYmd()))
+                .color(cleanString(dto.getClrNm()))
+                .storageLocation(storageLocation)
+                .imagePath(cleanString(dto.getFdFilePathImg()))
+                .externalId(dto.getAtcId())
+                .dataSource(LostItem.DataSource.LOST112)
+                .status(LostItem.Status.FOUND)
+                .owner(null)
+                .build();
     }
 
     private String cleanString(String value) {

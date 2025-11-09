@@ -2,6 +2,7 @@ package com.lostfound.capstonebackend;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Spring Boot 애플리케이션의 메인 클래스입니다.
@@ -13,6 +14,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * </ul>
  */
 @SpringBootApplication
+@EnableScheduling  // 스케줄러 기능 활성화 (application.yml의 scheduler.enabled로 제어)
 public class CapstoneBackendApplication {
 
     /**

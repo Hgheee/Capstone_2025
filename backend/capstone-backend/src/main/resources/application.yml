@@ -6,7 +6,7 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 
   datasource:
-    url: jdbc:mysql://localhost:3306/capstone_db?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/capstone_db?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useUnicode=true&allowPublicKeyRetrieval=true
     username: hogeonhee
     password: 0316
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -46,3 +46,7 @@ spring:
 api:
   seoul:
     key: ${SEOUL_API_KEY}
+
+# 데이터 자동 수집 스케줄러 설정
+scheduler:
+  enabled: false  # true로 변경하면 자동 수집 활성화 (매일 오전 3시, 4시)

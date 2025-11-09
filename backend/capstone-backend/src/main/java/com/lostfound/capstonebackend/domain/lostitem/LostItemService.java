@@ -2,6 +2,7 @@ package com.lostfound.capstonebackend.domain.lostitem;
 
 import com.lostfound.capstonebackend.common.exception.BusinessException;
 import com.lostfound.capstonebackend.common.exception.ErrorCode;
+import com.lostfound.capstonebackend.common.util.RegionUtil;
 import com.lostfound.capstonebackend.domain.lostitem.dto.LostItemRequest;
 import com.lostfound.capstonebackend.domain.lostitem.dto.LostItemResponse;
 import com.lostfound.capstonebackend.domain.user.User;
@@ -15,7 +16,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 분실물 관련 비즈니스 로직을 처리하는 서비스 클래스입니다.
@@ -65,11 +68,15 @@ public class LostItemService {
         User owner = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
+        // title, location, storageLocation에서 지역 정보 추출
+        String extractedRegion = RegionUtil.extractRegionFromAll(request.title(), request.location(), request.storageLocation());
+
         LostItem item = LostItem.builder()
                 .title(request.title())
                 .description(request.description())
                 .category(request.category())
                 .location(request.location())
+                .region(extractedRegion)
                 .foundDate(request.foundDate())
                 .color(request.color())
                 .storageLocation(request.storageLocation())
@@ -80,7 +87,8 @@ public class LostItemService {
                 .build();
 
         LostItem savedItem = lostItemRepository.save(item);
-        log.info("분실물 등록 완료 - ID: {}, 제목: {}, 등록자: {}", savedItem.getId(), savedItem.getTitle(), userEmail);
+        log.info("분실물 등록 완료 - ID: {}, 제목: {}, 지역: {}, 등록자: {}", 
+                savedItem.getId(), savedItem.getTitle(), extractedRegion, userEmail);
 
         return LostItemResponse.from(savedItem);
     }
@@ -117,8 +125,12 @@ public class LostItemService {
                 request.foundDate(),
                 request.color()
         );
+        
+        // 수정 시 지역 정보도 다시 추출
+        String extractedRegion = RegionUtil.extractRegionFromAll(item.getTitle(), request.location(), request.storageLocation());
+        item.setRegion(extractedRegion);
 
-        log.info("분실물 수정 완료 - ID: {}, 수정자: {}", id, userEmail);
+        log.info("분실물 수정 완료 - ID: {}, 지역: {}, 수정자: {}", id, extractedRegion, userEmail);
         return LostItemResponse.from(item);
     }
 
@@ -266,17 +278,30 @@ public class LostItemService {
 
     /**
      * 지역(위치)별 분실물을 검색합니다.
-     * 습득 장소와 보관 장소 모두에서 검색됩니다.
-     * @param region 지역명 키워드
+     * 선택된 지역과 인접한 지역들을 모두 포함하여 검색합니다.
+     * @param region 지역명
      * @param pageable 페이지네이션 정보
-     * @return 해당 지역의 분실물 목록 페이지
+     * @return 해당 지역 및 인접 지역의 분실물 목록 페이지
      */
     public Page<LostItemResponse> searchByRegion(String region, Pageable pageable) {
-        if (region == null || region.trim().isEmpty()) {
+        if (region == null || region.trim().isEmpty() || "전체".equals(region.trim())) {
             return findAll(pageable);
         }
         
-        return lostItemRepository.findByRegion(region.trim(), pageable)
+        String trimmedRegion = region.trim();
+        
+        // 선택된 지역과 인접 지역 목록을 가져옵니다
+        List<String> searchableRegions = RegionUtil.getSearchableRegions(trimmedRegion);
+        
+        if (searchableRegions.isEmpty()) {
+            // 검색 가능한 지역이 없으면 전체 검색
+            return findAll(pageable);
+        }
+        
+        log.info("지역 검색 - 선택된 지역: {}, 검색 범위: {}", trimmedRegion, searchableRegions);
+        
+        // 여러 지역에서 검색
+        return lostItemRepository.findByRegionIn(searchableRegions, pageable)
                 .map(LostItemResponse::from);
     }
 
@@ -368,5 +393,115 @@ public class LostItemService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "사용자를 찾을 수 없습니다."));
         
         return lostItemRepository.getStatusStatisticsByOwner(user.getId());
+    }
+
+    // ========== 데이터 마이그레이션 및 유지보수 기능 ==========
+
+    /**
+     * 전체 분실물 개수를 반환합니다.
+     */
+    public long getTotalCount() {
+        return lostItemRepository.count();
+    }
+
+    /**
+     * region 필드가 있는 분실물 개수를 반환합니다.
+     */
+    public long getCountWithRegion() {
+        return lostItemRepository.countWithRegion();
+    }
+
+    /**
+     * region별 분포를 반환합니다.
+     */
+    public Map<String, Long> getRegionDistribution() {
+        List<Object[]> results = lostItemRepository.getRegionDistribution();
+        Map<String, Long> distribution = new LinkedHashMap<>();
+        for (Object[] result : results) {
+            String region = (String) result[0];
+            Long count = (Long) result[1];
+            distribution.put(region != null ? region : "미분류", count);
+        }
+        return distribution;
+    }
+
+    /**
+     * region이 없는 데이터 샘플을 조회합니다.
+     */
+    public List<LostItemResponse> getItemsWithoutRegion(int limit) {
+        Pageable pageable = PageRequest.of(0, limit);
+        return lostItemRepository.findItemsWithoutRegion(pageable)
+                .stream()
+                .map(LostItemResponse::from)
+                .toList();
+    }
+
+    /**
+     * 기존 분실물 데이터의 region 필드를 업데이트합니다.
+     * location이나 storageLocation에서 지역 정보를 추출하여 region 필드에 저장합니다.
+     * @return 업데이트된 항목 수
+     */
+    @Transactional
+    public int updateAllRegions() {
+        log.info("전체 분실물 데이터의 지역 정보 추출 시작...");
+        
+        List<LostItem> allItems = lostItemRepository.findAll();
+        int updatedCount = 0;
+        int totalCount = allItems.size();
+        
+        for (LostItem item : allItems) {
+            String extractedRegion = RegionUtil.extractRegionFromAll(
+                    item.getTitle(),
+                    item.getLocation(), 
+                    item.getStorageLocation()
+            );
+            
+            // 지역이 추출되었고 기존 값과 다른 경우에만 업데이트
+            if (extractedRegion != null && !extractedRegion.equals(item.getRegion())) {
+                item.setRegion(extractedRegion);
+                updatedCount++;
+                
+                if (updatedCount % 100 == 0) {
+                    log.info("진행 중... {}/{} 완료", updatedCount, totalCount);
+                }
+            }
+        }
+        
+        log.info("지역 정보 추출 완료 - 전체: {}, 업데이트: {}", totalCount, updatedCount);
+        return updatedCount;
+    }
+
+    /**
+     * 특정 ID 범위의 분실물 데이터의 region 필드를 업데이트합니다.
+     * @param startId 시작 ID
+     * @param endId 종료 ID
+     * @return 업데이트된 항목 수
+     */
+    @Transactional
+    public int updateRegionsByIdRange(Long startId, Long endId) {
+        log.info("ID 범위 {}-{} 분실물 데이터의 지역 정보 추출 시작...", startId, endId);
+        
+        List<LostItem> items = lostItemRepository.findAllById(
+                java.util.stream.LongStream.rangeClosed(startId, endId)
+                        .boxed()
+                        .toList()
+        );
+        
+        int updatedCount = 0;
+        for (LostItem item : items) {
+            String extractedRegion = RegionUtil.extractRegionFromAll(
+                    item.getTitle(),
+                    item.getLocation(), 
+                    item.getStorageLocation()
+            );
+            
+            if (extractedRegion != null) {
+                item.setRegion(extractedRegion);
+                updatedCount++;
+            }
+        }
+        
+        log.info("지역 정보 추출 완료 - 처리: {}, 업데이트: {}", items.size(), updatedCount);
+        return updatedCount;
     }
 }

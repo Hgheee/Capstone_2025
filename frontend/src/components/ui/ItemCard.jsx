@@ -4,6 +4,7 @@ export default function ItemCard({ item }) {
     description,
     category,
     location,
+    region,
     foundDate,
     status,
     color,
@@ -63,13 +64,20 @@ export default function ItemCard({ item }) {
     <div className="border rounded-lg p-4 hover:shadow-lg transition-shadow bg-white">
       {/* 상태 배지 */}
       <div className="flex justify-between items-start mb-2">
-        <span
-          className={`inline-block px-2 py-1 text-xs font-semibold rounded ${getStatusColor(
-            status
-          )}`}
-        >
-          {getStatusText(status)}
-        </span>
+        <div className="flex gap-1">
+          <span
+            className={`inline-block px-2 py-1 text-xs font-semibold rounded ${getStatusColor(
+              status
+            )}`}
+          >
+            {getStatusText(status)}
+          </span>
+          {region && (
+            <span className="inline-block px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded">
+              📍 {region}
+            </span>
+          )}
+        </div>
         {category && (
           <span className="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
             {category}

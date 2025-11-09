@@ -19,7 +19,8 @@ import java.time.LocalDateTime;
         @Index(name = "idx_lost_item_found_date", columnList = "found_date"),
         @Index(name = "idx_lost_item_created_at", columnList = "created_at"),
         @Index(name = "idx_lost_item_category", columnList = "category"),
-        @Index(name = "idx_lost_item_external_id", columnList = "external_id")
+        @Index(name = "idx_lost_item_external_id", columnList = "external_id"),
+        @Index(name = "idx_lost_item_region", columnList = "region")
 })
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class LostItem {
@@ -54,6 +55,13 @@ public class LostItem {
      */
     @Column(length = 200)
     private String location;
+
+    /**
+     * 지역 (서울시 25개 구 중 하나)
+     * location이나 storageLocation에서 자동으로 추출됩니다.
+     */
+    @Column(length = 20)
+    private String region;
 
     /**
      * 습득 일자
