@@ -181,14 +181,31 @@ public interface LostItemRepository extends JpaRepository<LostItem, Long> {
     // ========== 고도화된 검색 기능 추가 ==========
 
     /**
-     * 지역(위치)별 분실물 검색 - 습득장소와 보관장소 모두 포함
+     * 지역(위치)별 분실물 검색 - 습득장소와 보관장소에서 텍스트 검색
      * @param region 지역명 키워드
      * @param pageable 페이지네이션 정보
      * @return 해당 지역의 분실물 목록 페이지
      */
     @Query("SELECT l FROM LostItem l WHERE " +
             "l.location LIKE CONCAT('%', :region, '%') OR l.storageLocation LIKE CONCAT('%', :region, '%')")
-    Page<LostItem> findByRegion(@Param("region") String region, Pageable pageable);
+    Page<LostItem> findByLocationOrStorageLocationContaining(@Param("region") String region, Pageable pageable);
+
+    /**
+     * region 필드를 사용한 정확한 지역별 분실물 검색
+     * @param region 지역명
+     * @param pageable 페이지네이션 정보
+     * @return 해당 지역의 분실물 목록 페이지
+     */
+    Page<LostItem> findByRegion(String region, Pageable pageable);
+
+    /**
+     * 여러 지역에 해당하는 분실물 검색 (선택된 지역 + 인접 지역)
+     * @param regions 검색할 지역 목록
+     * @param pageable 페이지네이션 정보
+     * @return 해당 지역들의 분실물 목록 페이지
+     */
+    @Query("SELECT l FROM LostItem l WHERE l.region IN :regions")
+    Page<LostItem> findByRegionIn(@Param("regions") List<String> regions, Pageable pageable);
 
     /**
      * 색상별 분실물 검색
@@ -267,4 +284,22 @@ public interface LostItemRepository extends JpaRepository<LostItem, Long> {
      */
     @Query("SELECT l.status, COUNT(l) FROM LostItem l WHERE l.owner.id = :ownerId GROUP BY l.status")
     List<Object[]> getStatusStatisticsByOwner(@Param("ownerId") Long ownerId);
+
+    /**
+     * region 필드가 있는 데이터 개수
+     */
+    @Query("SELECT COUNT(l) FROM LostItem l WHERE l.region IS NOT NULL")
+    long countWithRegion();
+
+    /**
+     * region별 분포 통계
+     */
+    @Query("SELECT l.region, COUNT(l) FROM LostItem l WHERE l.region IS NOT NULL GROUP BY l.region ORDER BY COUNT(l) DESC")
+    List<Object[]> getRegionDistribution();
+
+    /**
+     * region이 없는 데이터 샘플 조회
+     */
+    @Query("SELECT l FROM LostItem l WHERE l.region IS NULL ORDER BY l.createdAt DESC")
+    List<LostItem> findItemsWithoutRegion(Pageable pageable);
 }

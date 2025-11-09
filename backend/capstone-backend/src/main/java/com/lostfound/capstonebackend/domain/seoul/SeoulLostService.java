@@ -1,5 +1,6 @@
 package com.lostfound.capstonebackend.domain.seoul;
 
+import com.lostfound.capstonebackend.common.util.RegionUtil;
 import com.lostfound.capstonebackend.domain.lostitem.LostItem;
 import com.lostfound.capstonebackend.domain.seoul.dto.SeoulLostResponse;
 import com.lostfound.capstonebackend.domain.seoul.dto.SeoulLostRow;
@@ -50,6 +51,8 @@ public class SeoulLostService {
         this.jdbcTemplate = jdbcTemplate;
         this.restTemplate = restTemplateBuilder
                 .requestFactory(this::createRequestFactory)
+                .defaultHeader("Accept-Charset", "UTF-8")
+                .defaultHeader("Content-Type", "application/json;charset=UTF-8")
                 .build();
         this.apiKey = apiKey;
     }
@@ -188,13 +191,21 @@ public class SeoulLostService {
 
         log.info("서울시 원본 status 값: '{}'", row.getLostStts());
 
+        String title = StringUtils.hasText(row.getLostNm()) ? row.getLostNm().trim() : "무제 분실물";
+        String location = StringUtils.hasText(row.getRcpl()) ? row.getRcpl().trim() : null;
+        String storageLocation = StringUtils.hasText(row.getCstdPlc()) ? row.getCstdPlc().trim() : null;
+        
+        // 지역 정보 추출 (title 포함)
+        String region = RegionUtil.extractRegionFromAll(title, location, storageLocation);
+
         return LostItem.builder()
                 .externalId(StringUtils.hasText(row.getLostMngNo()) ? row.getLostMngNo().trim() : "UNKNOWN")
-                .title(StringUtils.hasText(row.getLostNm()) ? row.getLostNm().trim() : "무제 분실물")
+                .title(title)
                 .description(StringUtils.hasText(row.getLgsDtlCn()) ? row.getLgsDtlCn().trim() : null)
                 .category(mapCategory(row.getLostKnd()))
-                .location(StringUtils.hasText(row.getRcpl()) ? row.getRcpl().trim() : null)
-                .storageLocation(StringUtils.hasText(row.getCstdPlc()) ? row.getCstdPlc().trim() : null)
+                .location(location)
+                .region(region)
+                .storageLocation(storageLocation)
                 .foundDate(foundDate)
                 .receivedDate(receivedDate)
                 .viewCount(viewCount != null ? viewCount : 0)

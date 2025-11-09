@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
  * @param description     상세 설명
  * @param category        카테고리
  * @param location        습득 장소
+ * @param region          지역 (서울시 구)
  * @param foundDate       습득일
  * @param status          현재 상태 (FOUND, CLAIMED, EXPIRED 등)
  * @param externalId      외부 시스템 고유 ID
@@ -32,6 +33,7 @@ public record LostItemResponse(
         String description,
         String category,
         String location,
+        String region,
         LocalDate foundDate,
         String status,
         String externalId,
@@ -57,6 +59,7 @@ public record LostItemResponse(
                 item.getDescription(),
                 item.getCategory(),
                 item.getLocation(),
+                item.getRegion(),
                 item.getFoundDate(),
                 item.getStatus() != null ? item.getStatus().name() : null,
                 item.getExternalId(),

@@ -51,8 +51,21 @@ public class Lost112ApiService {
      * @return API로부터 받은 분실물 데이터 리스트. 응답이 없거나 에러 발생 시 빈 리스트를 반환합니다.
      */
     public List<Lost112ItemDto> fetchLostItems(int pageNo, int numOfRows) {
+        return fetchLostItems(pageNo, numOfRows, null, null, null);
+    }
+
+    /**
+     * LOST112 API를 호출하여 지역 및 날짜 범위를 지정하여 분실물 데이터를 가져옵니다.
+     * @param pageNo 조회할 페이지 번호
+     * @param numOfRows 한 페이지에 포함될 데이터의 수
+     * @param regionCode 지역 코드 (예: "11" = 서울, "26" = 부산)
+     * @param startYmd 시작 날짜 (YYYYMMDD 형식)
+     * @param endYmd 종료 날짜 (YYYYMMDD 형식)
+     * @return API로부터 받은 분실물 데이터 리스트
+     */
+    public List<Lost112ItemDto> fetchLostItems(int pageNo, int numOfRows, String regionCode, String startYmd, String endYmd) {
         try {
-            String url = buildApiUrl(pageNo, numOfRows);
+            String url = buildApiUrl(pageNo, numOfRows, regionCode, startYmd, endYmd);
             log.info("LOST112 API 호출: {}", url);
 
             // WebClient를 사용하여 비동기 API 호출 및 응답을 동기적으로 대기
@@ -145,16 +158,81 @@ public class Lost112ApiService {
      * LOST112 API 요청을 위한 전체 URL을 생성합니다.
      * @param pageNo 페이지 번호
      * @param numOfRows 페이지 당 행 수
+     * @param regionCode 지역 코드 (선택사항)
+     * @param startYmd 시작 날짜 (선택사항, YYYYMMDD)
+     * @param endYmd 종료 날짜 (선택사항, YYYYMMDD)
      * @return API 명세에 맞는 완전한 URL 문자열
      */
-    private String buildApiUrl(int pageNo, int numOfRows) {
-        return UriComponentsBuilder.fromHttpUrl(lost112Properties.getBaseUrl())
+    private String buildApiUrl(int pageNo, int numOfRows, String regionCode, String startYmd, String endYmd) {
+        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(lost112Properties.getBaseUrl())
                 .path("/getLostGoodsInfoAccToClAreaPd")
                 .queryParam("serviceKey", lost112Properties.getApiKey())
                 .queryParam("pageNo", pageNo)
                 .queryParam("numOfRows", Math.min(numOfRows, 100)) // API 최대 허용치는 100
-                .queryParam("type", "json")
-                .build()
-                .toUriString();
+                .queryParam("type", "json");
+        
+        // 지역 코드가 있으면 추가
+        if (regionCode != null && !regionCode.trim().isEmpty()) {
+            builder.queryParam("LST_LCT_CD", regionCode);
+            log.info("지역 코드 설정: {}", regionCode);
+        }
+        
+        // 시작 날짜가 있으면 추가
+        if (startYmd != null && !startYmd.trim().isEmpty()) {
+            builder.queryParam("START_YMD", startYmd);
+            log.info("시작 날짜 설정: {}", startYmd);
+        }
+        
+        // 종료 날짜가 있으면 추가
+        if (endYmd != null && !endYmd.trim().isEmpty()) {
+            builder.queryParam("END_YMD", endYmd);
+            log.info("종료 날짜 설정: {}", endYmd);
+        }
+        
+        return builder.build().toUriString();
+    }
+
+    /**
+     * 여러 지역의 데이터를 병렬로 수집합니다.
+     * @param regionCodes 수집할 지역 코드 목록
+     * @param startYmd 시작 날짜
+     * @param endYmd 종료 날짜
+     * @return 모든 지역의 분실물 데이터
+     */
+    public List<Lost112ItemDto> fetchAllRegions(List<String> regionCodes, String startYmd, String endYmd) {
+        List<Lost112ItemDto> allItems = new ArrayList<>();
+        int pageSize = lost112Properties.getPage().getSize();
+        int sleepMs = lost112Properties.getPage().getSleepMs();
+        
+        for (String regionCode : regionCodes) {
+            log.info("지역 코드 {} 데이터 수집 시작", regionCode);
+            
+            int pageNo = 1;
+            while (pageNo <= 10) { // 각 지역당 최대 10페이지
+                List<Lost112ItemDto> pageItems = fetchLostItems(pageNo, pageSize, regionCode, startYmd, endYmd);
+                
+                if (pageItems.isEmpty()) {
+                    log.info("지역 {} - 더 이상 데이터 없음. 페이지: {}", regionCode, pageNo);
+                    break;
+                }
+                
+                allItems.addAll(pageItems);
+                log.info("지역 {} - 페이지 {} 완료. 수집: {}개, 누적: {}개", 
+                        regionCode, pageNo, pageItems.size(), allItems.size());
+                
+                pageNo++;
+                
+                try {
+                    Thread.sleep(sleepMs);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.warn("데이터 수집 중단됨");
+                    return allItems;
+                }
+            }
+        }
+        
+        log.info("전체 지역 데이터 수집 완료. 총 {}개", allItems.size());
+        return allItems;
     }
 }

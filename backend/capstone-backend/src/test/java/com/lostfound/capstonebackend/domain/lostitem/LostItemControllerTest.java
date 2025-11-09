@@ -77,6 +77,7 @@ class LostItemControllerTest {
                 "설명",
                 "카테고리",
                 "서울",
+                "강남구",  // region 필드 추가
                 LocalDate.now(),
                 LostItem.Status.FOUND.name(),
                 null,

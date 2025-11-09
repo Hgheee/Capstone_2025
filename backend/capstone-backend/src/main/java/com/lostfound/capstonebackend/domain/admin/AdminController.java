@@ -24,8 +24,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.File;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -44,6 +46,7 @@ public class AdminController {
     private final Lost112ImportService lost112ImportService;
     private final Lost112ApiService lost112ApiService;
     private final SeoulLostService seoulLostService;
+    private final com.lostfound.capstonebackend.domain.lostitem.LostItemService lostItemService;
 
     /**
      * LOST112 API를 통해 분실물 데이터를 수집하고 데이터베이스에 저장합니다.
@@ -512,5 +515,187 @@ public class AdminController {
         results.forEach(response::put);
         response.put("total", total);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * LOST112 데이터를 지역별로 수집합니다 (개선된 버전)
+     * @param startYmd 시작 날짜 (YYYYMMDD)
+     * @param endYmd 종료 날짜 (YYYYMMDD)
+     * @param regions 수집할 지역 (쉼표로 구분, 예: "서울,경기,부산")
+     * @return 수집 결과
+     */
+    @PostMapping("/import/lost112-by-region")
+    @Operation(summary = "LOST112 지역별 데이터 수집", 
+               description = "지역 코드와 날짜 범위를 지정하여 LOST112 데이터를 수집합니다.")
+    public ApiResponse<Map<String, Object>> importLost112ByRegion(
+            @RequestParam(required = false) String startYmd,
+            @RequestParam(required = false) String endYmd,
+            @RequestParam(required = false, defaultValue = "서울,경기,부산,인천") String regions) {
+        
+        log.info("LOST112 지역별 데이터 수집 요청 - 날짜: {} ~ {}, 지역: {}", startYmd, endYmd, regions);
+        
+        try {
+            // 날짜 기본값 설정 (최근 7일)
+            if (startYmd == null || startYmd.isEmpty()) {
+                startYmd = java.time.LocalDate.now().minusDays(7).format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+            }
+            if (endYmd == null || endYmd.isEmpty()) {
+                endYmd = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+            }
+            
+            // 지역명을 코드로 변환
+            List<String> regionCodes = new ArrayList<>();
+            for (String region : regions.split(",")) {
+                String trimmed = region.trim();
+                String code = com.lostfound.capstonebackend.common.util.Lost112RegionCodes.getCodeByName(trimmed);
+                if (code != null) {
+                    regionCodes.add(code);
+                } else {
+                    log.warn("알 수 없는 지역: {}", trimmed);
+                }
+            }
+            
+            if (regionCodes.isEmpty()) {
+                Map<String, Object> errorResponse = new LinkedHashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "유효한 지역이 없습니다: " + regions);
+                return ApiResponse.ok(errorResponse);
+            }
+            
+            // 데이터 수집
+            List<com.lostfound.capstonebackend.domain.lost112.dto.Lost112ItemDto> items = 
+                    lost112ImportService.lost112ApiService.fetchAllRegions(regionCodes, startYmd, endYmd);
+            
+            log.info("LOST112 지역별 수집 완료 - 총 {}개 아이템", items.size());
+            
+            // 데이터 저장은 기존 로직 활용
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("success", true);
+            response.put("message", "LOST112 지역별 데이터 수집이 완료되었습니다.");
+            response.put("totalFetched", items.size());
+            response.put("regions", regionCodes);
+            response.put("startYmd", startYmd);
+            response.put("endYmd", endYmd);
+            response.put("timestamp", java.time.LocalDateTime.now().toString());
+            
+            return ApiResponse.ok(response);
+            
+        } catch (Exception e) {
+            log.error("LOST112 지역별 수집 실패", e);
+            Map<String, Object> errorResponse = new LinkedHashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "데이터 수집 중 오류가 발생했습니다: " + e.getMessage());
+            return ApiResponse.ok(errorResponse);
+        }
+    }
+
+    /**
+     * 지역 정보 통계를 조회합니다.
+     * @return 지역별 분실물 통계
+     */
+    @GetMapping("/region-stats")
+    @Operation(summary = "지역 정보 통계", description = "전체 데이터의 지역 정보 분포를 확인합니다.")
+    public ApiResponse<Map<String, Object>> getRegionStats() {
+        try {
+            long totalCount = lostItemService.getTotalCount();
+            long withRegion = lostItemService.getCountWithRegion();
+            long withoutRegion = totalCount - withRegion;
+            
+            Map<String, Long> regionDistribution = lostItemService.getRegionDistribution();
+            
+            Map<String, Object> stats = new LinkedHashMap<>();
+            stats.put("totalCount", totalCount);
+            stats.put("withRegion", withRegion);
+            stats.put("withoutRegion", withoutRegion);
+            stats.put("regionCoverage", totalCount > 0 ? (double) withRegion / totalCount * 100 : 0);
+            stats.put("regionDistribution", regionDistribution);
+            
+            return ApiResponse.ok(stats);
+        } catch (Exception e) {
+            log.error("지역 통계 조회 실패", e);
+            Map<String, Object> errorResponse = new LinkedHashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "지역 통계 조회 중 오류가 발생했습니다: " + e.getMessage());
+            return ApiResponse.ok(errorResponse);
+        }
+    }
+
+    /**
+     * 기존 분실물 데이터의 region 필드를 업데이트합니다.
+     * location이나 storageLocation에서 지역 정보를 추출하여 저장합니다.
+     * 
+     * @param userDetails 인증된 관리자 정보
+     * @return 업데이트 결과를 담은 ApiResponse 객체
+     */
+    @PostMapping("/update-regions")
+    @Operation(summary = "지역 정보 추출 및 업데이트",
+            description = "기존 분실물 데이터에서 location/storageLocation 필드로부터 지역 정보를 추출하여 region 필드에 저장합니다.")
+    public ApiResponse<Map<String, Object>> updateRegions() {
+        log.info("분실물 지역 정보 업데이트 요청");
+
+        try {
+            int updatedCount = lostItemService.updateAllRegions();
+
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("success", true);
+            response.put("message", "지역 정보 업데이트가 완료되었습니다.");
+            response.put("updatedCount", updatedCount);
+            response.put("timestamp", java.time.LocalDateTime.now().toString());
+
+            log.info("지역 정보 업데이트 완료 - 업데이트된 항목 수: {}", updatedCount);
+            return ApiResponse.ok(response);
+
+        } catch (Exception e) {
+            log.error("지역 정보 업데이트 실패", e);
+            Map<String, Object> errorResponse = new LinkedHashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "지역 정보 업데이트 중 오류가 발생했습니다: " + e.getMessage());
+            errorResponse.put("timestamp", java.time.LocalDateTime.now().toString());
+            return ApiResponse.ok(errorResponse);
+        }
+    }
+
+    /**
+     * 특정 ID 범위의 분실물 데이터의 region 필드를 업데이트합니다.
+     * 
+     * @param startId 시작 ID
+     * @param endId 종료 ID
+     * @param userDetails 인증된 관리자 정보
+     * @return 업데이트 결과를 담은 ApiResponse 객체
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/update-regions/range")
+    @Operation(summary = "ID 범위별 지역 정보 업데이트",
+            description = "특정 ID 범위의 분실물 데이터에서 지역 정보를 추출하여 업데이트합니다.")
+    public ApiResponse<Map<String, Object>> updateRegionsByRange(
+            @Parameter(description = "시작 ID") @RequestParam Long startId,
+            @Parameter(description = "종료 ID") @RequestParam Long endId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        log.info("분실물 지역 정보 범위 업데이트 요청 - 관리자: {}, 범위: {}-{}", 
+                userDetails.getUsername(), startId, endId);
+
+        try {
+            int updatedCount = lostItemService.updateRegionsByIdRange(startId, endId);
+
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("success", true);
+            response.put("message", String.format("ID %d-%d 범위의 지역 정보 업데이트가 완료되었습니다.", startId, endId));
+            response.put("updatedCount", updatedCount);
+            response.put("startId", startId);
+            response.put("endId", endId);
+            response.put("timestamp", java.time.LocalDateTime.now().toString());
+
+            log.info("지역 정보 범위 업데이트 완료 - 업데이트된 항목 수: {}", updatedCount);
+            return ApiResponse.ok(response);
+
+        } catch (Exception e) {
+            log.error("지역 정보 범위 업데이트 실패", e);
+            Map<String, Object> errorResponse = new LinkedHashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "지역 정보 업데이트 중 오류가 발생했습니다: " + e.getMessage());
+            errorResponse.put("timestamp", java.time.LocalDateTime.now().toString());
+            return ApiResponse.ok(errorResponse);
+        }
     }
 }
