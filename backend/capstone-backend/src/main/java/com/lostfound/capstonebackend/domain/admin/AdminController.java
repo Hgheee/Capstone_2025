@@ -3,6 +3,7 @@ package com.lostfound.capstonebackend.domain.admin;
 import com.lostfound.capstonebackend.common.dto.ApiResponse;
 import com.lostfound.capstonebackend.domain.lost112.Lost112ApiService;
 import com.lostfound.capstonebackend.domain.lost112.Lost112ImportService;
+import com.lostfound.capstonebackend.domain.lost112.SimpleLost112ImportService;
 import com.lostfound.capstonebackend.domain.lost112.dto.Lost112ImportRequest;
 import com.lostfound.capstonebackend.domain.lost112.dto.PythonCollectionResult;
 import com.lostfound.capstonebackend.domain.lost112.dto.PythonDataSummary;
@@ -44,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 public class AdminController {
 
     private final Lost112ImportService lost112ImportService;
+    private final SimpleLost112ImportService simpleLost112ImportService;
     private final Lost112ApiService lost112ApiService;
     private final SeoulLostService seoulLostService;
     private final com.lostfound.capstonebackend.domain.lostitem.LostItemService lostItemService;
@@ -98,6 +100,41 @@ public class AdminController {
             }
 
             return ApiResponse.ok(errorResponse);
+        }
+    }
+
+    /**
+     * WebClient만으로 LOST112 데이터를 수집하는 단순 경로입니다.
+     * Python 의존성 없이 빠르게 데이터를 불러와 본 테이블에 저장합니다.
+     */
+    @PostMapping("/import/lost112-simple")
+    @Operation(summary = "LOST112 데이터 수집 (단순 WebClient)",
+            description = "WebClient로 LOST112 API를 호출해 데이터를 저장합니다. startDate/endDate는 yyyy-MM-dd 형식을 사용합니다.")
+    public ApiResponse<Map<String, Object>> importLost112Simple(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody SimpleLost112ImportRequestPayload request
+    ) {
+        if (request == null) {
+            return ApiResponse.ok(simpleImportFailure("요청 본문을 전달해주세요."));
+        }
+        String username = userDetails != null ? userDetails.getUsername() : "system";
+        log.info("LOST112 단순 수집 요청 - 사용자: {}, 요청: {}", username, request);
+
+        try {
+            Map<String, Object> result = new LinkedHashMap<>(simpleLost112ImportService.importData(
+                    request.startDate(),
+                    request.endDate(),
+                    request.regionCode(),
+                    request.maxPages(),
+                    request.rowsPerPage()));
+            result.put("success", true);
+            return ApiResponse.ok(result);
+        } catch (IllegalArgumentException e) {
+            log.warn("LOST112 단순 수집 파라미터 오류 - 사용자: {}, 메시지: {}", username, e.getMessage());
+            return ApiResponse.ok(simpleImportFailure(e.getMessage()));
+        } catch (Exception e) {
+            log.error("LOST112 단순 수집 실패 - 사용자: {}", username, e);
+            return ApiResponse.ok(simpleImportFailure("LOST112 단순 수집 실패: " + e.getMessage()));
         }
     }
 
@@ -697,5 +734,21 @@ public class AdminController {
             errorResponse.put("timestamp", java.time.LocalDateTime.now().toString());
             return ApiResponse.ok(errorResponse);
         }
+    }
+
+    private Map<String, Object> simpleImportFailure(String message) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("success", false);
+        payload.put("message", message);
+        return payload;
+    }
+
+    private record SimpleLost112ImportRequestPayload(
+            String startDate,
+            String endDate,
+            String regionCode,
+            Integer maxPages,
+            Integer rowsPerPage
+    ) {
     }
 }

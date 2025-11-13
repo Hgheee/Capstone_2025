@@ -1,14 +1,14 @@
-# OS / IDE
+OS / IDE
 .DS_Store
 .idea/
 .vscode/
 Thumbs.db
 
-# data
+data
 data/.env
 data/out/
 
-# Java / Spring Boot
+Java / Spring Boot
 backend/target/
 *.log
 *.iml
@@ -16,33 +16,83 @@ backend/target/
 *.jar
 *.war
 
-# Maven / Gradle
+Maven / Gradle
 backend/.mvn/
 backend/.gradle/
 backend/build/
 backend/out/
 
-# Node / React (Vite)
+Node / React (Vite)
 frontend/node_modules/
 frontend/.vite/
 frontend/dist/
 frontend/package-lock.json
 frontend/yarn.lock
 
-# Environment / Config
+Environment / Config
 .env
 .venv/
 **/*.env
-**/application.properties
-**/application.yml
-!**/application-example.yml
-!**/application-example.properties
+/application.properties
+/application.yml
+!/application-example.yml
+!/application-example.properties
 
-# Coverage / Test
+Coverage / Test
 coverage/
 *.lcov
 data/.env
 backend/capstone-backend/data/.env
-__pycache__/
+pycache/
 *.pyc
 .venv/
+
+
+application-secrets.yml
+application-local.yml
+*-secrets.yml
+*-local.yml
+**/apikey.txt
+**/secrets.txt
+**/credentials.json
+
+
+.claude/
+claude.json
+.claude-project/
+_ai_generated
+claude
+*.ai.tmp
+.ai-context/
+.chat-history/
+claude-context.json
+.cursor/
+.windsurf/
+
+
+*.db
+*.sqlite
+*.sqlite3
+
+
+*.swp
+*.swo
+*.tmp
+*.bak
+.backup
+~
+
+
+.AppleDouble
+.LSOverride
+ehthumbs.db
+Desktop.ini
+*~
+
+
+uploads/
+files/
+static/uploads/
+test-data/
+temp/
+tmp/

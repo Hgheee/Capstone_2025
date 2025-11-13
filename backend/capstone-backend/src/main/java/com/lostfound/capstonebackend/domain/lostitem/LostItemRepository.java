@@ -34,6 +34,15 @@ public interface LostItemRepository extends JpaRepository<LostItem, Long> {
      */
     boolean existsByExternalIdAndDataSource(String externalId, LostItem.DataSource dataSource);
 
+    /**
+     * 외부 시스템 ID 리스트와 데이터 출처를 기준으로 다건 분실물을 조회합니다.
+     * 대량 동기화 시 이미 저장된 항목을 한 번에 찾아내어 중복 저장을 방지합니다.
+     * @param externalIds 조회할 외부 ID 목록
+     * @param dataSource 데이터 출처
+     * @return 검색된 분실물 목록
+     */
+    List<LostItem> findByExternalIdInAndDataSource(List<String> externalIds, LostItem.DataSource dataSource);
+
     @Query("SELECT l.externalId FROM LostItem l WHERE l.dataSource = :dataSource AND l.externalId IN :externalIds")
     List<String> findExternalIdsByDataSourceAndExternalIdIn(@Param("dataSource") LostItem.DataSource dataSource,
                                                             @Param("externalIds") Collection<String> externalIds);
