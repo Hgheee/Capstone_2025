@@ -8,9 +8,12 @@ import Home from "./pages/Home.jsx";
 import Search from "./pages/Search.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
+import MyPage from "./pages/MyPage.jsx";
+import AdminPage from "./pages/AdminPage.jsx";
 import NotFound from "./pages/NotFound.jsx";
 
 import ProtectedRoute from "./components/routing/ProtectedRoute.jsx";
+import AdminRoute from "./components/routing/AdminRoute.jsx";
 
 export default function App() {
   return (
@@ -27,7 +30,12 @@ export default function App() {
 
         {/*보호 라우트 */}
         <Route element={<ProtectedRoute />}>
-          {/* <Route path="/dashboard" element={<Dashboard />} /> */}
+          <Route path="/mypage" element={<MyPage />} />
+        </Route>
+
+        {/*관리자 전용 라우트 */}
+        <Route element={<AdminRoute />}>
+          <Route path="/admin" element={<AdminPage />} />
         </Route>
 
         {/* 404 페이지 */}

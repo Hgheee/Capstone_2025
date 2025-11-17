@@ -4,13 +4,11 @@ import { useAuth } from "../contexts/AuthContext";
 
 export default function Register() {
   const [form, setForm] = useState({
-    username: "",
+    email: "",
     password: "",
     confirmPassword: "",
     name: "",
     phone: "", // ✅ '' 초기화 유지
-    emailUser: "",
-    emailDomain: "",
     year: "",
     month: "",
     day: "",
@@ -38,15 +36,13 @@ export default function Register() {
 
   /** 공백 제거 + 기본 검증 */
   function validate() {
-    if (!form.username.trim()) return "아이디를 입력하세요.";
+    if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()))
+      return "유효한 이메일을 입력하세요.";
     if (!form.password || form.password.length < 8)
       return "비밀번호는 8자 이상 입력하세요.";
     if (form.password !== form.confirmPassword)
       return "비밀번호가 일치하지 않습니다.";
     if (!form.name.trim()) return "이름을 입력하세요.";
-    const email = `${form.emailUser.trim()}@${form.emailDomain.trim()}`;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-      return "유효한 이메일을 입력하세요.";
     return null;
   }
 
@@ -59,15 +55,16 @@ export default function Register() {
     if (msg) return alert(msg);
 
     // YYYY-MM-DD (월/일 zero-pad)
-    const birth = `${form.year}-${pad2(form.month)}-${pad2(form.day)}`;
+    const birth = form.year && form.month && form.day 
+      ? `${form.year}-${pad2(form.month)}-${pad2(form.day)}`
+      : null;
 
     // blur에서 이미 포맷되었더라도 한 번 더 안전하게 보정하고 전송
     const payload = {
-      username: form.username.trim(),
+      email: form.email.trim(),
       password: form.password,
       name: form.name.trim(),
       phone: formatPhoneKR(form.phone), // ✅ 하이픈 포함으로 백엔드 정규식 통과
-      email: `${form.emailUser.trim()}@${form.emailDomain.trim()}`,
       birth,
     };
 
@@ -97,16 +94,16 @@ export default function Register() {
           onSubmit={onSubmit}
           className="space-y-6 w-full max-w-[700px] mx-auto"
         >
-          {/* 아이디 */}
+          {/* 이메일 */}
           <div>
-            <label className="block text-[20px] mb-2">아이디</label>
+            <label className="block text-[20px] mb-2">이메일 (아이디)</label>
             <input
-              type="text"
-              placeholder="아이디 입력 (6~20자)"
-              value={form.username}
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              type="email"
+              placeholder="example@email.com"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
               className="w-full h-[56px] border border-[#656565] rounded-[12px] px-4 text-base"
-              autoComplete="username"
+              autoComplete="email"
             />
           </div>
 
@@ -151,15 +148,15 @@ export default function Register() {
             />
           </div>
 
-          {/* 전화번호 */}
+          {/* 전화번호 (선택사항) */}
           <div>
-            <label className="block text-[20px] mb-2">전화번호</label>
+            <label className="block text-[20px] mb-2">전화번호 (선택사항)</label>
             <input
               type="tel"
               inputMode="numeric"
               placeholder="010-1234-5678"
               value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })} //setPhone → setForm로 수정
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
               onBlur={() =>
                 setForm((prev) => ({
                   ...prev,
@@ -172,37 +169,9 @@ export default function Register() {
             />
           </div>
 
-          {/* 이메일 */}
+          {/* 생년월일 (선택사항) */}
           <div>
-            <label className="block text-[20px] mb-2">이메일</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="이메일 아이디"
-                value={form.emailUser}
-                onChange={(e) =>
-                  setForm({ ...form, emailUser: e.target.value })
-                }
-                className="flex-1 h-[56px] border border-[#4D4D4D] rounded-[12px] px-4 text-base"
-                autoComplete="email"
-              />
-              <span className="text-[20px]">@</span>
-              <input
-                type="text"
-                placeholder="직접 입력"
-                value={form.emailDomain}
-                onChange={(e) =>
-                  setForm({ ...form, emailDomain: e.target.value })
-                }
-                className="flex-1 h-[56px] border border-[#4D4D4D] rounded-[12px] px-4 text-base"
-                autoComplete="email"
-              />
-            </div>
-          </div>
-
-          {/* 생년월일 */}
-          <div>
-            <label className="block text-[20px] mb-2">생년월일</label>
+            <label className="block text-[20px] mb-2">생년월일 (선택사항)</label>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -211,7 +180,7 @@ export default function Register() {
                 onChange={(e) =>
                   setForm({ ...form, year: e.target.value.replace(/\D/g, "") })
                 }
-                className="flex-1 h-[56px] border rounded-[12px] px-4"
+                className="flex-1 h-[56px] border border-[#606060] rounded-[12px] px-4"
                 inputMode="numeric"
                 maxLength={4}
               />
@@ -222,7 +191,7 @@ export default function Register() {
                 onChange={(e) =>
                   setForm({ ...form, month: e.target.value.replace(/\D/g, "") })
                 }
-                className="flex-1 h-[56px] border rounded-[12px] px-4"
+                className="flex-1 h-[56px] border border-[#606060] rounded-[12px] px-4"
                 inputMode="numeric"
                 maxLength={2}
               />
@@ -233,7 +202,7 @@ export default function Register() {
                 onChange={(e) =>
                   setForm({ ...form, day: e.target.value.replace(/\D/g, "") })
                 }
-                className="flex-1 h-[56px] border rounded-[12px] px-4"
+                className="flex-1 h-[56px] border border-[#606060] rounded-[12px] px-4"
                 inputMode="numeric"
                 maxLength={2}
               />

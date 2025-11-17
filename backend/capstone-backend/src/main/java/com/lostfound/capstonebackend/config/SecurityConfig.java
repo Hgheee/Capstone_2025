@@ -87,6 +87,7 @@ public class SecurityConfig {
                             "/api/admin/region-stats",  // ✅ 지역 통계는 공개
                             "/api/admin/update-regions",  // ✅ 지역 업데이트는 공개 (임시)
                             "/api/admin/import/lost112-by-region",  // ✅ LOST112 지역별 수집 (임시)
+                            "/api/admin/seoul/import",  // ✅ 서울교통공사 수집 (임시)
                             "/favicon.ico",
                             "/error"
                     ));

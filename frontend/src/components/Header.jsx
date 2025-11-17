@@ -14,24 +14,41 @@ export default function Header() {
   };
 
   return (
-    <header className="border-b">
-      <div className="max-w-5xl mx-auto flex items-center justify-between p-4">
-        <NavLink to="/home" className="text-xl font-semibold">
+    <header className="border-b bg-white shadow-sm">
+      <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
+        <NavLink to="/home" className="text-2xl font-bold text-[#A2AADB] hover:text-[#8B94C7] transition-colors">
           Lost&Found
         </NavLink>
-        <nav className="flex items-center gap-2">
+        <nav className="flex items-center gap-4">
           <NavLink to="/home" className={linkCls}>
             홈
           </NavLink>
 
           {user ? (
             <>
-              <span className="text-sm text-gray-600">
+              <NavLink to="/search" className={linkCls}>
+                검색
+              </NavLink>
+              <NavLink to="/report" className={linkCls}>
+                분실물 신고
+              </NavLink>
+              <NavLink to="/mypage" className={linkCls}>
+                마이페이지
+              </NavLink>
+              {user.role === "ADMIN" && (
+                <NavLink to="/admin" className={linkCls}>
+                  <span className="text-purple-600 font-semibold">관리자</span>
+                </NavLink>
+              )}
+              <span className="text-sm text-gray-600 px-2">
                 {user.name ? `${user.name}님` : user.email}
+                {user.role === "ADMIN" && (
+                  <span className="ml-1 text-xs text-purple-600 font-semibold">(관리자)</span>
+                )}
               </span>
               <button
                 onClick={onLogout}
-                className="px-3 py-2 rounded-md border hover:bg-gray-100"
+                className="px-4 py-2 rounded-md bg-[#A2AADB] text-white hover:bg-[#8B94C7] transition-colors font-medium"
               >
                 로그아웃
               </button>
@@ -41,7 +58,7 @@ export default function Header() {
               <NavLink to="/login" className={linkCls}>
                 로그인
               </NavLink>
-              <NavLink to="/signup" className={linkCls}>
+              <NavLink to="/register" className={linkCls}>
                 회원가입
               </NavLink>
             </>

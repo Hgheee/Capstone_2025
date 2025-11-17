@@ -34,11 +34,12 @@ import org.springframework.web.client.RestTemplate;
 @Transactional
 public class SeoulLostService {
 
-    private static final String URL_TEMPLATE = "http://openapi.seoul.go.kr:8088/%s/json/lostArticleInfo/1/100";
+    private static final String URL_TEMPLATE = "http://openapi.seoul.go.kr:8088/%s/json/lostArticleInfo/%d/%d";
+    private static final int BATCH_SIZE = 1000; // 한 번에 가져올 데이터 개수 (최대 1000)
     private static final int BATCH_INSERT_SIZE = 100;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
-    private static final Duration READ_TIMEOUT = Duration.ofSeconds(15);
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(30); // 대량 데이터 수집을 위해 타임아웃 증가
     private static final Map<String, String> CATEGORY_MAP = createCategoryMap();
 
     private final JdbcTemplate jdbcTemplate;
@@ -57,60 +58,122 @@ public class SeoulLostService {
         this.apiKey = apiKey;
     }
 
+    /**
+     * 서울교통공사 분실물 데이터 전체 수집 (페이징)
+     * 최근 데이터부터 최대한 많이 가져옵니다.
+     */
     public int importSeoulLostItems() {
-        SeoulLostResponse response;
-        try {
-            response = fetchBatch();
-        } catch (RestClientException e) {
-            log.error("서울시 분실물 API 호출 실패 - 사유: {}", e.getMessage(), e);
-            return 0;
-        }
+        log.info("========================================");
+        log.info("서울교통공사 분실물 데이터 수집 시작");
+        log.info("========================================");
 
-        if (response == null || response.getLostArticleInfo() == null) {
-            log.warn("서울시 분실물 API 응답이 비어있습니다.");
-            return 0;
-        }
+        int totalImported = 0;
+        int startIndex = 1;
+        int pageCount = 0;
+        int maxPages = 100; // 최대 100페이지 (100,000건) - 필요시 조정 가능
 
-        SeoulLostResponse.LostArticleInfo info = response.getLostArticleInfo();
-        SeoulLostResponse.Result result = info.getResult();
+        while (pageCount < maxPages) {
+            pageCount++;
+            int endIndex = startIndex + BATCH_SIZE - 1;
 
-        if (result == null || !Objects.equals("INFO-000", result.getCode())) {
-            log.warn("서울시 분실물 API 응답 코드 비정상 - code: {}, message: {}",
-                    result != null ? result.getCode() : null,
-                    result != null ? result.getMessage() : null);
-            return 0;
-        }
+            log.info("[{}페이지] 데이터 수집 중... ({} ~ {})", pageCount, startIndex, endIndex);
 
-        List<SeoulLostRow> rows = info.getRow();
-        if (rows == null || rows.isEmpty()) {
-            log.info("서울시 분실물 API에서 반환된 데이터가 없습니다.");
-            return 0;
-        }
-
-        List<LostItem> items = new ArrayList<>(rows.size());
-        for (SeoulLostRow row : rows) {
-            if (row == null) {
-                continue;
+            SeoulLostResponse response;
+            try {
+                response = fetchBatch(startIndex, endIndex);
+            } catch (RestClientException e) {
+                log.error("서울교통공사 API 호출 실패 (페이지: {}) - 사유: {}", pageCount, e.getMessage());
+                break; // API 오류 시 중단
             }
 
-            String rawExternalId = row.getLostMngNo();
-            if (!StringUtils.hasText(rawExternalId)) {
-                continue;
+            if (response == null || response.getLostArticleInfo() == null) {
+                log.warn("서울교통공사 API 응답이 비어있습니다. (페이지: {})", pageCount);
+                break;
             }
 
-            items.add(convertToEntity(row));
+            SeoulLostResponse.LostArticleInfo info = response.getLostArticleInfo();
+            SeoulLostResponse.Result result = info.getResult();
+
+            // 응답 코드 확인
+            if (result == null || !Objects.equals("INFO-000", result.getCode())) {
+                log.warn("서울교통공사 API 응답 코드 비정상 (페이지: {}) - code: {}, message: {}",
+                        pageCount,
+                        result != null ? result.getCode() : null,
+                        result != null ? result.getMessage() : null);
+                
+                // 데이터가 없으면 종료
+                if (result != null && "INFO-200".equals(result.getCode())) {
+                    log.info("더 이상 수집할 데이터가 없습니다. (총 페이지: {})", pageCount - 1);
+                }
+                break;
+            }
+
+            List<SeoulLostRow> rows = info.getRow();
+            if (rows == null || rows.isEmpty()) {
+                log.info("서울교통공사 API에서 반환된 데이터가 없습니다. (페이지: {})", pageCount);
+                break; // 데이터 없으면 종료
+            }
+
+            // 전체 개수 확인 (첫 페이지에서만)
+            if (pageCount == 1) {
+                Integer totalCount = info.getListTotalCount();
+                if (totalCount != null && totalCount > 0) {
+                    log.info("📊 전체 데이터 개수: {}건", totalCount);
+                    int estimatedPages = (totalCount / BATCH_SIZE) + 1;
+                    log.info("📄 예상 페이지 수: {}페이지", estimatedPages);
+                    maxPages = Math.min(estimatedPages, 100); // 최대 100페이지로 제한
+                }
+            }
+
+            // 데이터 변환 및 저장
+            List<LostItem> items = new ArrayList<>(rows.size());
+            for (SeoulLostRow row : rows) {
+                if (row == null) {
+                    continue;
+                }
+
+                String rawExternalId = row.getLostMngNo();
+                if (!StringUtils.hasText(rawExternalId)) {
+                    continue;
+                }
+
+                items.add(convertToEntity(row));
+            }
+
+            if (!items.isEmpty()) {
+                batchInsertLostItems(items);
+                totalImported += items.size();
+                log.info("✅ [{}페이지] {}건 처리 완료 (누적: {}건)", pageCount, items.size(), totalImported);
+            }
+
+            // 다음 페이지로
+            startIndex = endIndex + 1;
+
+            // API 부하 방지를 위한 짧은 대기 (0.5초)
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.warn("데이터 수집 중 인터럽트 발생");
+                break;
+            }
         }
 
-        if (!items.isEmpty()) {
-            batchInsertLostItems(items);
-        }
+        log.info("========================================");
+        log.info("서울교통공사 분실물 수집 완료!");
+        log.info("총 {}페이지, {}건 수집", pageCount, totalImported);
+        log.info("========================================");
 
-        log.info("서울시 분실물 수집 완료 - 총 {}건 수신, 저장: {}건", rows.size(), items.size());
-        return items.size();
+        return totalImported;
     }
 
-    private SeoulLostResponse fetchBatch() {
-        String url = String.format(URL_TEMPLATE, apiKey);
+    /**
+     * 서울교통공사 API에서 특정 범위의 데이터 가져오기
+     * @param startIndex 시작 인덱스 (1부터 시작)
+     * @param endIndex 종료 인덱스
+     */
+    private SeoulLostResponse fetchBatch(int startIndex, int endIndex) {
+        String url = String.format(URL_TEMPLATE, apiKey, startIndex, endIndex);
         ResponseEntity<SeoulLostResponse> response = restTemplate.getForEntity(url, SeoulLostResponse.class);
         return response.getBody();
     }
@@ -127,10 +190,12 @@ public class SeoulLostService {
             return;
         }
 
+        // 중복 체크: external_id가 이미 존재하는 항목 제외
         final String sql = "INSERT INTO lost_item "
                 + "(title, status, datasource, category, location, description, external_id, "
-                + "storage_location, received_date, found_date, created_at, updated_at, view_count) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?)";
+                + "storage_location, received_date, found_date, created_at, updated_at, view_count, region) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?) "
+                + "ON DUPLICATE KEY UPDATE external_id = external_id";  // 중복 시 무시
 
         jdbcTemplate.batchUpdate(sql, items, BATCH_INSERT_SIZE, (ps, item) -> {
             ps.setString(1, item.getTitle());
@@ -180,7 +245,16 @@ public class SeoulLostService {
             } else {
                 ps.setNull(11, Types.INTEGER);
             }
+
+            // region 추가
+            if (item.getRegion() != null) {
+                ps.setString(12, item.getRegion());
+            } else {
+                ps.setNull(12, Types.VARCHAR);
+            }
         });
+        
+        log.info("서울교통공사 배치 삽입 완료 - 총 {}건 시도 (중복은 자동 제외됨)", items.size());
     }
 
     private LostItem convertToEntity(SeoulLostRow row) {

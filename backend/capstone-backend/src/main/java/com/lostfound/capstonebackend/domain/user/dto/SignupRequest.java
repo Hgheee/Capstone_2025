@@ -27,14 +27,8 @@ public class SignupRequest {
     @Size(max = 255, message = "이메일은 255자를 초과할 수 없습니다.")
     private String email;
 
-    /** 로그인 아이디(username) */
-    @Schema(description = "로그인 아이디(영문/숫자/._- 가능, 4~30자)", example = "myid_123", required = true)
-    @NotBlank(message = "아이디는 필수 입력값입니다.")
-    @Size(min = 4, max = 30, message = "아이디는 4자 이상 30자 이하로 입력해주세요.")
-    @Pattern(
-        regexp = "^[a-zA-Z0-9._-]{4,30}$",
-        message = "아이디는 영문/숫자/._-만 사용할 수 있습니다."
-    )
+    /** 로그인 아이디(username) - 이메일과 동일하게 자동 설정됨 */
+    @Schema(description = "로그인 아이디(이메일과 동일)", example = "user@example.com", required = false)
     private String username;
 
     /** 사용자 비밀번호 */
@@ -65,10 +59,12 @@ public class SignupRequest {
     /**
      * User 엔티티로 변환하는 메소드
      * 비밀번호는 암호화되지 않은 상태로 반환됩니다. (Service에서 암호화)
+     * username이 없으면 email을 username으로 사용합니다.
      */
     public com.lostfound.capstonebackend.domain.user.User toEntity() {
+        String finalUsername = (username != null && !username.isBlank()) ? username : email;
         return com.lostfound.capstonebackend.domain.user.User.builder()
-                .username(username)   // ✅ 아이디 저장 (DB가 NOT NULL/UNIQUE인 경우 필수)
+                .username(finalUsername)   // ✅ username이 없으면 email을 사용
                 .email(email)
                 .password(password)   // 암호화는 Service에서 처리
                 .name(name)

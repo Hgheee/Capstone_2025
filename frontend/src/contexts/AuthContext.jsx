@@ -112,17 +112,20 @@ export default function AuthProvider({ children }) {
     }
   };
 
-  // 회원가입: 현재 구조 유지(이메일, 아이디 분리) + phone 자동 하이픈 적용
+  // 회원가입: 이메일을 아이디로 사용 (username 자동 설정) + phone 자동 하이픈 적용
   const register = async (payload) => {
     try {
-      // 기대 키: { email, username, name, password, phone? }
+      // 기대 키: { email, name, password, phone?, birth? }
+      // username은 백엔드에서 email로 자동 설정됨
       const clean = {
         email: payload?.email?.trim(),
-        username: payload?.username?.trim(),
         name: payload?.name?.trim(),
         password: payload?.password,
-        ...(payload?.phone !== undefined
+        ...(payload?.phone !== undefined && payload.phone !== ""
           ? { phone: formatPhoneKR(payload.phone) }
+          : {}),
+        ...(payload?.birth !== undefined && payload.birth !== null
+          ? { birth: payload.birth }
           : {}),
       };
 

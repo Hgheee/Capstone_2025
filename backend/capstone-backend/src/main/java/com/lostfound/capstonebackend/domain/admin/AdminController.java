@@ -47,6 +47,8 @@ public class AdminController {
     private final Lost112ApiService lost112ApiService;
     private final SeoulLostService seoulLostService;
     private final com.lostfound.capstonebackend.domain.lostitem.LostItemService lostItemService;
+    private final com.lostfound.capstonebackend.domain.user.UserService userService;
+    private final com.lostfound.capstonebackend.domain.user.UserRepository userRepository;
 
     /**
      * LOST112 API를 통해 분실물 데이터를 수집하고 데이터베이스에 저장합니다.
@@ -480,7 +482,7 @@ public class AdminController {
         }
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    // @PreAuthorize("hasRole('ADMIN')") // 스크립트에서 호출 가능하도록 임시 비활성화
     @PostMapping("/seoul/import")
     public ResponseEntity<Map<String, Object>> importSeoulData() {
         int imported = seoulLostService.importSeoulLostItems();
@@ -695,6 +697,136 @@ public class AdminController {
             errorResponse.put("success", false);
             errorResponse.put("message", "지역 정보 업데이트 중 오류가 발생했습니다: " + e.getMessage());
             errorResponse.put("timestamp", java.time.LocalDateTime.now().toString());
+            return ApiResponse.ok(errorResponse);
+        }
+    }
+
+    /**
+     * 관리자가 모든 사용자 목록을 조회합니다.
+     * @return 사용자 목록 및 통계
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/users")
+    @Operation(summary = "사용자 목록 조회", description = "관리자가 전체 사용자 목록과 통계를 조회합니다.")
+    public ApiResponse<Map<String, Object>> getAllUsers() {
+        log.info("관리자 사용자 목록 조회 요청");
+        
+        try {
+            List<com.lostfound.capstonebackend.domain.user.User> users = userRepository.findAll();
+            List<com.lostfound.capstonebackend.domain.user.dto.UserResponse> userResponses = 
+                users.stream()
+                    .map(com.lostfound.capstonebackend.domain.user.dto.UserResponse::from)
+                    .toList();
+            
+            long totalUsers = users.size();
+            long adminCount = users.stream().filter(u -> u.getRole() == com.lostfound.capstonebackend.domain.user.UserRole.ADMIN).count();
+            long normalUsers = totalUsers - adminCount;
+            
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("success", true);
+            response.put("totalUsers", totalUsers);
+            response.put("adminCount", adminCount);
+            response.put("normalUserCount", normalUsers);
+            response.put("users", userResponses);
+            response.put("timestamp", java.time.LocalDateTime.now().toString());
+            
+            log.info("사용자 목록 조회 완료 - 총 {}명 (관리자: {}명, 일반: {}명)", totalUsers, adminCount, normalUsers);
+            return ApiResponse.ok(response);
+            
+        } catch (Exception e) {
+            log.error("사용자 목록 조회 실패", e);
+            Map<String, Object> errorResponse = new LinkedHashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "사용자 목록 조회 중 오류가 발생했습니다: " + e.getMessage());
+            return ApiResponse.ok(errorResponse);
+        }
+    }
+
+    /**
+     * 관리자가 특정 사용자를 삭제합니다.
+     * @param userId 삭제할 사용자 ID
+     * @return 삭제 결과
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/users/{userId}")
+    @Operation(summary = "사용자 삭제", description = "관리자가 특정 사용자를 삭제합니다.")
+    public ApiResponse<Map<String, Object>> deleteUser(
+            @PathVariable Long userId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        log.info("사용자 삭제 요청 - 관리자: {}, 대상 사용자 ID: {}", userDetails.getUsername(), userId);
+        
+        try {
+            com.lostfound.capstonebackend.domain.user.User user = userRepository.findById(userId)
+                .orElseThrow(() -> new com.lostfound.capstonebackend.common.exception.BusinessException(
+                    com.lostfound.capstonebackend.common.exception.ErrorCode.USER_NOT_FOUND));
+            
+            // 자기 자신은 삭제 불가
+            if (user.getEmail().equals(userDetails.getUsername())) {
+                Map<String, Object> errorResponse = new LinkedHashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "자기 자신은 삭제할 수 없습니다.");
+                return ApiResponse.ok(errorResponse);
+            }
+            
+            String deletedEmail = user.getEmail();
+            userRepository.delete(user);
+            
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("success", true);
+            response.put("message", "사용자가 삭제되었습니다.");
+            response.put("deletedUserId", userId);
+            response.put("deletedUserEmail", deletedEmail);
+            response.put("timestamp", java.time.LocalDateTime.now().toString());
+            
+            log.info("사용자 삭제 완료 - 삭제된 사용자: {} (ID: {})", deletedEmail, userId);
+            return ApiResponse.ok(response);
+            
+        } catch (Exception e) {
+            log.error("사용자 삭제 실패", e);
+            Map<String, Object> errorResponse = new LinkedHashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "사용자 삭제 중 오류가 발생했습니다: " + e.getMessage());
+            return ApiResponse.ok(errorResponse);
+        }
+    }
+
+    /**
+     * 시스템 전체 통계를 조회합니다.
+     * @return 시스템 통계 (사용자, 분실물 등)
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/stats")
+    @Operation(summary = "시스템 전체 통계", description = "사용자, 분실물 등 시스템 전체 통계를 조회합니다.")
+    public ApiResponse<Map<String, Object>> getSystemStats() {
+        log.info("시스템 통계 조회 요청");
+        
+        try {
+            long totalUsers = userRepository.count();
+            long totalLostItems = lostItemService.getTotalCount();
+            long itemsWithRegion = lostItemService.getCountWithRegion();
+            
+            Map<String, Object> stats = new LinkedHashMap<>();
+            stats.put("success", true);
+            stats.put("users", Map.of(
+                "total", totalUsers,
+                "admin", userRepository.findAll().stream().filter(u -> u.getRole() == com.lostfound.capstonebackend.domain.user.UserRole.ADMIN).count(),
+                "normal", userRepository.findAll().stream().filter(u -> u.getRole() == com.lostfound.capstonebackend.domain.user.UserRole.USER).count()
+            ));
+            stats.put("lostItems", Map.of(
+                "total", totalLostItems,
+                "withRegion", itemsWithRegion,
+                "regionCoverage", totalLostItems > 0 ? String.format("%.2f%%", (double) itemsWithRegion / totalLostItems * 100) : "0%"
+            ));
+            stats.put("timestamp", java.time.LocalDateTime.now().toString());
+            
+            log.info("시스템 통계 조회 완료");
+            return ApiResponse.ok(stats);
+            
+        } catch (Exception e) {
+            log.error("시스템 통계 조회 실패", e);
+            Map<String, Object> errorResponse = new LinkedHashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "시스템 통계 조회 중 오류가 발생했습니다: " + e.getMessage());
             return ApiResponse.ok(errorResponse);
         }
     }

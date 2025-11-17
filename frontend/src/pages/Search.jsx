@@ -18,6 +18,16 @@ const CATEGORIES = [
   "기타"
 ];
 
+// 상태 옵션 정의
+const STATUS_OPTIONS = [
+  { label: "전체", value: null },
+  { label: "습득", value: "FOUND" },
+  { label: "보관중", value: "STORED" },
+  { label: "수령완료", value: "CLAIMED" },
+  { label: "반환완료", value: "RETURNED" },
+  { label: "기간만료", value: "EXPIRED" },
+];
+
 // 광역시/도별 시/군/구 옵션
 const REGION_HIERARCHY = {
   "전체": [],
@@ -61,6 +71,7 @@ export default function Search() {
   const [searchParams] = useSearchParams();
   const [keyword, setKeyword] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("전체");
+  const [selectedStatus, setSelectedStatus] = useState(null); // 상태 필터 추가
   const [selectedProvince, setSelectedProvince] = useState("전체");
   const [selectedDistrict, setSelectedDistrict] = useState("전체");
   const [results, setResults] = useState([]);
@@ -100,6 +111,11 @@ export default function Search() {
       // 카테고리가 선택되었으면 추가
       if (selectedCategory !== "전체") {
         searchParams.category = selectedCategory;
+      }
+
+      // 상태가 선택되었으면 추가
+      if (selectedStatus) {
+        searchParams.status = selectedStatus;
       }
 
       // 지역 검색 처리 (광역시/도 + 시/군/구)
@@ -232,6 +248,32 @@ export default function Search() {
                 }`}
               >
                 {category}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 상태 선택 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            상태
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {STATUS_OPTIONS.map((status) => (
+              <button
+                key={status.label}
+                type="button"
+                onClick={() => {
+                  setSelectedStatus(status.value);
+                  setCurrentPage(0);
+                }}
+                className={`px-4 py-2 rounded-md border transition-colors ${
+                  selectedStatus === status.value
+                    ? "bg-green-600 text-white border-green-600"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                {status.label}
               </button>
             ))}
           </div>

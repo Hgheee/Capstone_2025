@@ -44,8 +44,11 @@ spring:
       continue-on-error: true
 
 api:
+  lost112:
+    key: ${LOST112_API_KEY:sample-api-key-lost112}
+    base-url: https://apis.data.go.kr/1320000
   seoul:
-    key: ${SEOUL_API_KEY}
+    key: ${SEOUL_API_KEY:sample-api-key-seoul}
 
 # 데이터 자동 수집 스케줄러 설정
 scheduler:

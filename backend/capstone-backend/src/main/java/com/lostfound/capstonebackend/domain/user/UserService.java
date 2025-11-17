@@ -37,9 +37,18 @@ public class UserService {
     public UserResponse signup(SignupRequest signupRequest) {
         log.info("Starting user signup process for email: {}", signupRequest.getEmail());
 
-        // 1) 중복 검사
+        // 1) 중복 검사 (이메일만)
         validateEmailNotExists(signupRequest.getEmail());
-        validateUsernameNotExists(signupRequest.getUsername());
+        
+        // username이 제공되지 않으면 email을 사용
+        String finalUsername = (signupRequest.getUsername() != null && !signupRequest.getUsername().isBlank()) 
+                ? signupRequest.getUsername() 
+                : signupRequest.getEmail();
+        
+        // username 중복 검사 (email과 다른 경우에만)
+        if (!finalUsername.equals(signupRequest.getEmail())) {
+            validateUsernameNotExists(finalUsername);
+        }
 
         // 2) 비밀번호 암호화
         String encodedPassword = passwordEncoder.encode(signupRequest.getPassword());
@@ -59,9 +68,9 @@ public class UserService {
         // 4) 전화번호 정규화(하이픈 유무 모두 허용 → DB 일관 포맷으로 저장)
         String normalizedPhone = normalizePhone(signupRequest.getPhone());
 
-        // 5) User 엔티티 구성 및 저장 (⚠ username 반드시 세팅)
+        // 5) User 엔티티 구성 및 저장 (username이 없으면 email 사용)
         User user = User.builder()
-                .username(signupRequest.getUsername())   // ✅ 필수: DB가 NOT NULL
+                .username(finalUsername)   // ✅ email을 username으로 사용 가능
                 .email(signupRequest.getEmail())
                 .password(encodedPassword)
                 .name(signupRequest.getName())
