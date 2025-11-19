@@ -1,73 +1,87 @@
-# 📁 Scripts 폴더
+# 📋 프로젝트 스크립트 가이드
 
-## 유틸리티 스크립트 모음
+## 🚀 서버 관리
 
-### 🔧 **유지보수용 스크립트**
+### 서버_재시작.bat
+백엔드 서버만 재시작합니다.
+- Java 프로세스 종료 후 재시작
+- 약 15-20초 소요
 
-#### `test_api.bat`
-- **용도:** API 연결 및 데이터 수집 테스트
-- **사용 시기:** 
-  - 데이터 수집이 제대로 되는지 확인할 때
-  - API 키가 올바르게 설정되었는지 확인할 때
-- **실행:**
-  ```bash
-  .\scripts\test_api.bat
-  ```
+### 프론트엔드_재시작.bat
+프론트엔드 서버만 재시작합니다.
+- Node.js 프로세스 종료 후 재시작
+- Vite 개발 서버 시작
 
-#### `setup_unique_constraint.bat`
-- **용도:** DB에 UNIQUE 제약 조건 추가 (중복 방지)
-- **사용 시기:**
-  - 최초 설정 시 한 번만 실행
-  - 중복 데이터가 계속 저장될 때
-- **실행:**
-  ```bash
-  .\scripts\setup_unique_constraint.bat
-  ```
+### 전체_시스템_재시작.bat
+백엔드 + 프론트엔드를 모두 재시작합니다.
+- 순차적으로 재시작 (백엔드 → 프론트엔드)
+- 전체 시스템 초기화 시 사용
 
-#### `add_unique_constraint.sql`
-- **용도:** UNIQUE 제약 조건 추가 SQL 스크립트
-- **사용 시기:** 
-  - MySQL에서 직접 실행하고 싶을 때
-- **실행:**
-  ```bash
-  mysql -u hogeonhee -p capstone_db
-  source scripts/add_unique_constraint.sql;
-  ```
+### 프론트엔드_완전초기화.bat
+프론트엔드 완전 초기화 및 재시작
+- Vite 캐시 삭제
+- 빌드 폴더 삭제
+- 깨끗한 상태로 재시작
 
 ---
 
-## ⚠️ 주의사항
+## 🧹 데이터 관리
 
-### **데이터 수집은 루트의 `collect_data.bat`를 사용하세요!**
+### 깨진데이터_자동정리.bat / .ps1
+깨진 데이터를 자동으로 정리합니다.
+- 관리자 계정으로 로그인
+- `/api/admin/cleanup-now` API 호출
+- 깨진 데이터 삭제 및 결과 표시
 
-```bash
-# ✅ 올바른 방법
-.\collect_data.bat
+**사용법:**
+1. 백엔드 서버가 실행 중이어야 함
+2. 관리자 계정 필요 (cleanup@admin.com / Admin1234!)
+3. 더블 클릭으로 실행
 
-# ❌ 잘못된 방법
-.\scripts\collect_data.bat  # 존재하지 않음!
+---
+
+## 👤 사용자 관리
+
+### create_admin_account.sql
+관리자 계정을 생성하는 SQL 스크립트
+
+**사용법:**
+```sql
+mysql -u hogeonhee -p0316 capstone_db < create_admin_account.sql
 ```
 
----
-
-## 🗑️ 정리된 파일들
-
-다음 파일들은 **메인 스크립트로 통합**되어 삭제되었습니다:
-
-- ~~`collect_data.bat`~~ → 루트로 이동
-- ~~`collect_data_simple.bat`~~ → 메인 파일로 통합
-- ~~`collect_latest.bat`~~ → 메인 파일로 통합
-- ~~`complete_reset.bat`~~ → 메인 파일의 옵션 5
-- ~~`reset_and_recollect.bat`~~ → 메인 파일로 통합
-- ~~`quick_fix_korean.bat`~~ → 더 이상 필요 없음
-- ~~각종 README 문서들~~ → 루트 README.md로 통합
+**생성되는 계정:**
+- 이메일: `admin@admin.com`
+- 비밀번호: `Snow0316!`
+- 권한: `ADMIN`
 
 ---
 
-## 📖 더 많은 정보
+## 📊 데이터베이스
 
-- **메인 README:** `../README.md`
-- **빠른 설정:** `../SETUP.md`
+### schema.sql
+데이터베이스 스키마 정의
+- 테이블 생성
+- 인덱스 설정
+- 외래 키 제약 조건
 
+### scripts/add_unique_constraint.sql
+고유 제약 조건 추가 스크립트
 
+---
 
+## 🔧 유틸리티
+
+### scripts/test_api.bat
+API 테스트 스크립트
+
+### scripts/setup_unique_constraint.bat
+고유 제약 조건 설정 스크립트
+
+---
+
+## 📝 참고
+
+- 모든 스크립트는 프로젝트 루트 디렉토리에서 실행해야 합니다
+- 백엔드 스크립트는 MySQL이 실행 중이어야 합니다
+- 프론트엔드 스크립트는 Node.js가 설치되어 있어야 합니다

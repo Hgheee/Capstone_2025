@@ -30,6 +30,3 @@ export default function AdminRoute() {
   // 관리자인 경우 자식 컴포넌트 렌더링
   return <Outlet />;
 }
-
-
-

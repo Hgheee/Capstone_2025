@@ -60,6 +60,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
+        // ✅ CORS preflight (OPTIONS) 요청은 바로 통과
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         try {
             // 1. 요청 헤더에서 JWT 토큰 추출
             String jwt = parseJwt(request);
@@ -151,12 +157,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
 
+        // ✅ OPTIONS 요청 (CORS preflight)은 모두 필터 제외
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+
         // 아래 경로들은 JWT 인증 필터를 거치지 않음 (공개 API)
         return path.equals("/") ||
                 path.startsWith("/api/health") ||
-                path.equals("/api/auth/login") ||
-                path.equals("/api/auth/signup") ||
+                path.startsWith("/api/auth/") ||  // ✅ 모든 인증 관련 API 허용
                 path.startsWith("/api/lost-items") ||  // ✅ 분실물 조회 API 추가
+                path.startsWith("/actuator/") ||  // ✅ Actuator 추가
                 path.startsWith("/swagger-ui/") ||
                 path.startsWith("/v3/api-docs/") ||
                 path.equals("/favicon.ico") ||

@@ -23,7 +23,9 @@ export default function Login() {
 
       // ✅ AuthContext.login은 { email, password } 를 받도록 수정됨
       await login({ email: form.email, password: form.password });
-      navigate("/home");
+      
+      // ✅ 로그인 후 강제 새로고침 (AuthContext 상태 확실히 업데이트)
+      window.location.href = "/home";
     } catch (err) {
       // ✅ AuthContext에서 이미 사람이 읽을 수 있는 message로 변환해 던지므로 우선 사용
       const msg =

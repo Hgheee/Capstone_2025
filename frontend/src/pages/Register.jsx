@@ -71,7 +71,7 @@ export default function Register() {
     try {
       await register(payload);
       alert("회원가입이 완료되었습니다. 로그인 해주세요.");
-      navigate("/login");
+      window.location.href = "/login";
     } catch (err) {
       const msg =
         err?.message ||

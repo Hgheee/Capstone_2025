@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import api from "../api/axios";
+import { api } from "../lib/api";
 
 export default function MyPage() {
   const { user, logout } = useAuth();
@@ -343,6 +343,7 @@ export default function MyPage() {
     </div>
   );
 }
+
 
 
 

@@ -2,20 +2,23 @@ server:
   port: 8081
 
 spring:
+  config:
+    import: optional:file:.env[.properties]
+
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 
   datasource:
-    url: jdbc:mysql://localhost:3306/capstone_db?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useUnicode=true&allowPublicKeyRetrieval=true
-    username: hogeonhee
-    password: 0316
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
-    
+
     # 커넥션 풀 설정
     hikari:
-      minimum-idle: 5
-      maximum-pool-size: 20
-      connection-timeout: 30000
+      minimum-idle: ${DB_HIKARI_MINIMUM_IDLE:5}
+      maximum-pool-size: ${DB_HIKARI_MAXIMUM_POOL_SIZE:20}
+      connection-timeout: ${DB_HIKARI_CONNECTION_TIMEOUT:30000}
       idle-timeout: 300000
       max-lifetime: 1800000
 
@@ -24,32 +27,37 @@ spring:
     hibernate:
       ddl-auto: update
     # SQL 로그 출력 (개발 환경)
-    show-sql: true
+    show-sql: ${SHOW_SQL:true}
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
-        format_sql: true
+        format_sql: ${FORMAT_SQL:true}
         jdbc:
           batch_size: 100
         order_inserts: true
         order_updates: true
         # N+1 쿼리 감지
         generate_statistics: false
+        # 2차 캐시 비활성화 (선택사항)
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
     open-in-view: false
-  
+
   # SQL 초기화 설정
   sql:
     init:
       mode: always
       continue-on-error: true
 
+# API 키 설정
 api:
   lost112:
-    key: ${LOST112_API_KEY:sample-api-key-lost112}
-    base-url: https://apis.data.go.kr/1320000
+    key: ${LOST112_API_KEY}
+    base-url: ${LOST112_BASE_URL:https://apis.data.go.kr/1320000/LosfundInfoInqireService}
   seoul:
-    key: ${SEOUL_API_KEY:sample-api-key-seoul}
+    key: ${SEOUL_API_KEY}
 
-# 데이터 자동 수집 스케줄러 설정
+# 스케줄러 설정
 scheduler:
-  enabled: false  # true로 변경하면 자동 수집 활성화 (매일 오전 3시, 4시)
+  enabled: false

@@ -1,5 +1,6 @@
 package com.lostfound.capstonebackend.domain.seoul;
 
+import com.lostfound.capstonebackend.common.util.EncodingUtil;
 import com.lostfound.capstonebackend.common.util.RegionUtil;
 import com.lostfound.capstonebackend.domain.lostitem.LostItem;
 import com.lostfound.capstonebackend.domain.seoul.dto.SeoulLostResponse;
@@ -125,8 +126,10 @@ public class SeoulLostService {
                 }
             }
 
-            // 데이터 변환 및 저장
+            // 데이터 변환 및 저장 (인코딩 처리 + 깨진 데이터 필터링)
             List<LostItem> items = new ArrayList<>(rows.size());
+            int brokenCount = 0;
+            
             for (SeoulLostRow row : rows) {
                 if (row == null) {
                     continue;
@@ -137,7 +140,24 @@ public class SeoulLostService {
                     continue;
                 }
 
-                items.add(convertToEntity(row));
+                // 엔티티 변환 (인코딩 처리 포함)
+                LostItem item = convertToEntity(row);
+                
+                // 깨진 데이터 필터링
+                if (item != null && !isDataBroken(item)) {
+                    items.add(item);
+                } else {
+                    brokenCount++;
+                    if (item != null) {
+                        log.warn("⚠️ 깨진 데이터 제외 (서울교통공사) - ID: {}, Title: {}", 
+                                item.getExternalId(), 
+                                EncodingUtil.safeSubstring(item.getTitle(), 30));
+                    }
+                }
+            }
+            
+            if (brokenCount > 0) {
+                log.warn("⚠️ [{}페이지] 깨진 데이터 {}건 제외됨", pageCount, brokenCount);
             }
 
             if (!items.isEmpty()) {
@@ -263,11 +283,18 @@ public class SeoulLostService {
         LocalDateTime receivedDate = received != null ? received.atStartOfDay() : null;
         Integer viewCount = parseInteger(row.getInqCnt());
 
-        log.info("서울시 원본 status 값: '{}'", row.getLostStts());
+        log.debug("서울시 원본 status 값: '{}'", row.getLostStts());
 
-        String title = StringUtils.hasText(row.getLostNm()) ? row.getLostNm().trim() : "무제 분실물";
-        String location = StringUtils.hasText(row.getRcpl()) ? row.getRcpl().trim() : null;
-        String storageLocation = StringUtils.hasText(row.getCstdPlc()) ? row.getCstdPlc().trim() : null;
+        // ✅ 한글 인코딩 안전 처리
+        String title = EncodingUtil.safeDecodeBySource(row.getLostNm(), "SEOUL_LOST");
+        if (title == null || title.trim().isEmpty()) {
+            title = "무제 분실물";
+        }
+        
+        String description = EncodingUtil.safeDecodeBySource(row.getLgsDtlCn(), "SEOUL_LOST");
+        String location = EncodingUtil.safeDecodeBySource(row.getRcpl(), "SEOUL_LOST");
+        String storageLocation = EncodingUtil.safeDecodeBySource(row.getCstdPlc(), "SEOUL_LOST");
+        String category = mapCategory(row.getLostKnd());
         
         // 지역 정보 추출 (title 포함)
         String region = RegionUtil.extractRegionFromAll(title, location, storageLocation);
@@ -275,8 +302,8 @@ public class SeoulLostService {
         return LostItem.builder()
                 .externalId(StringUtils.hasText(row.getLostMngNo()) ? row.getLostMngNo().trim() : "UNKNOWN")
                 .title(title)
-                .description(StringUtils.hasText(row.getLgsDtlCn()) ? row.getLgsDtlCn().trim() : null)
-                .category(mapCategory(row.getLostKnd()))
+                .description(description)
+                .category(category)
                 .location(location)
                 .region(region)
                 .storageLocation(storageLocation)
@@ -287,6 +314,23 @@ public class SeoulLostService {
                 .dataSource(LostItem.DataSource.SEOUL_LOST)
                 .status(mapStatus(row.getLostStts()))
                 .build();
+    }
+
+    /**
+     * 깨진 데이터인지 확인합니다.
+     */
+    private boolean isDataBroken(LostItem item) {
+        if (item == null) {
+            return true;
+        }
+        
+        return EncodingUtil.hasAnyBroken(
+                item.getTitle(),
+                item.getDescription(),
+                item.getCategory(),
+                item.getLocation(),
+                item.getStorageLocation()
+        );
     }
 
     private String mapCategory(String originalCategory) {

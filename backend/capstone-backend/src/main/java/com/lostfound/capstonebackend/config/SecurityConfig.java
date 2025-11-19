@@ -1,7 +1,5 @@
 package com.lostfound.capstonebackend.config;
 
-import com.lostfound.capstonebackend.common.util.JwtUtils;
-import com.lostfound.capstonebackend.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
@@ -33,8 +31,6 @@ import java.util.List;
 @Slf4j
 public class SecurityConfig {
 
-    private final JwtUtils jwtUtils;
-    private final UserRepository userRepository;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final Environment environment;
 
@@ -81,13 +77,13 @@ public class SecurityConfig {
                     List<String> permitAll = new ArrayList<>(List.of(
                             "/",
                             "/api/health",
-                            "/api/auth/login",
-                            "/api/auth/signup",
+                            "/api/auth/**",  // ✅ 모든 인증 관련 API 허용 (login, signup, check-email 등)
                             "/api/lost-items/**",   // ✅ 분실물 조회 API는 공개
                             "/api/admin/region-stats",  // ✅ 지역 통계는 공개
                             "/api/admin/update-regions",  // ✅ 지역 업데이트는 공개 (임시)
                             "/api/admin/import/lost112-by-region",  // ✅ LOST112 지역별 수집 (임시)
                             "/api/admin/seoul/import",  // ✅ 서울교통공사 수집 (임시)
+                            "/actuator/**",  // ✅ Actuator 엔드포인트 허용 (개발/모니터링용)
                             "/favicon.ico",
                             "/error"
                     ));
@@ -100,7 +96,7 @@ public class SecurityConfig {
                         ));
                     }
 
-                    // 설정된 경로들은 인증 없이 접근 허용
+                    // 설정된 경로들은 인증 없이 접근 허용 (OPTIONS 메서드 포함)
                     auth.requestMatchers(permitAll.toArray(String[]::new)).permitAll()
                         // 그 외 모든 요청은 인증이 필요함
                         .anyRequest().authenticated();
@@ -114,43 +110,41 @@ public class SecurityConfig {
 
     /**
      * CORS(Cross-Origin Resource Sharing) 설정을 위한 빈을 등록합니다.
-     * 환경변수(ALLOWED_ORIGINS)에서 허용할 출처를 읽어와 동적으로 설정합니다.
-     * 환경변수가 없을 경우, 기본값으로 http://localhost:5173을 사용합니다.
+     * 개발 환경에서는 모든 Origin을 허용하도록 설정합니다.
      * @return UrlBasedCorsConfigurationSource 인스턴스
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // ALLOWED_ORIGINS 환경변수(콤마 구분) 기반 화이트리스트 CORS 설정
-        String originsEnv = System.getenv("ALLOWED_ORIGINS");
-        if (originsEnv == null || originsEnv.isBlank()) {
-            originsEnv = "http://localhost:5173"; // 개발 환경 기본값
+        boolean isDev = Arrays.asList(environment.getActiveProfiles()).contains("dev");
+        
+        if (isDev) {
+            // 🔥 개발 환경: 모든 Origin 허용
+            log.info("🔥 개발 모드: CORS - 모든 Origin 허용");
+            configuration.setAllowedOriginPatterns(List.of("*"));
+            configuration.setAllowedMethods(List.of("*"));
+            configuration.setAllowedHeaders(List.of("*"));
+            configuration.setAllowCredentials(true);
+            configuration.setMaxAge(3600L);
+        } else {
+            // 🔒 프로덕션 환경: 제한된 Origin만 허용
+            String originsEnv = System.getenv("ALLOWED_ORIGINS");
+            if (originsEnv == null || originsEnv.isBlank()) {
+                originsEnv = "http://localhost:5173"; // 기본값
+            }
+            List<String> origins = Arrays.stream(originsEnv.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .toList();
+            
+            log.info("🔒 프로덕션 모드: CORS 허용 출처: {}", origins);
+            configuration.setAllowedOrigins(origins);
+            configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+            configuration.setAllowedHeaders(DEFAULT_ALLOWED_HEADERS);
+            configuration.setAllowCredentials(true);
+            configuration.setMaxAge(3600L);
         }
-        List<String> origins = Arrays.stream(originsEnv.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .toList();
-
-        log.info("CORS 허용 출처: {}", origins);
-
-        configuration.setAllowedOrigins(origins);
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-
-        String allowedHeadersEnv = System.getenv("ALLOWED_HEADERS");
-        List<String> allowedHeaders = (allowedHeadersEnv == null || allowedHeadersEnv.isBlank())
-                ? DEFAULT_ALLOWED_HEADERS
-                : Arrays.stream(allowedHeadersEnv.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .toList();
-        if (allowedHeaders.stream().anyMatch("*"::equals)) {
-            allowedHeaders = DEFAULT_ALLOWED_HEADERS;
-        }
-
-        configuration.setAllowedHeaders(allowedHeaders);
-        configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

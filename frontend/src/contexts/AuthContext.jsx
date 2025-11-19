@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import api from "../api/axios";
+import { api, authApi } from "../lib/api";
 
 const AuthContext = createContext(null);
 
@@ -55,12 +55,16 @@ export default function AuthProvider({ children }) {
   useEffect(() => {
     const savedToken = localStorage.getItem("accessToken");
     const savedUser = localStorage.getItem("user");
-    if (savedToken) setToken(savedToken);
+    
+    if (savedToken) {
+      setToken(savedToken);
+    }
     if (savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
-      } catch {
-        /* ignore */
+        const parsed = JSON.parse(savedUser);
+        setUser(parsed);
+      } catch (e) {
+        console.error("❌ [AuthContext] Failed to parse user:", e);
       }
     }
     setLoading(false);
@@ -85,10 +89,7 @@ export default function AuthProvider({ children }) {
       }
 
       const payload = { email: finalEmail, password };
-      const { data } = await api.post("/auth/login", payload, {
-        headers: { "Content-Type": "application/json" },
-        timeout: 15000,
-      });
+      const { data } = await authApi.login(payload);
 
       const body = unwrapApi(data);
       const accessToken = body?.accessToken || body?.token;
@@ -129,10 +130,7 @@ export default function AuthProvider({ children }) {
           : {}),
       };
 
-      const { data } = await api.post("/auth/signup", clean, {
-        headers: { "Content-Type": "application/json" },
-        timeout: 15000,
-      });
+      const { data } = await authApi.signup(clean);
 
       return unwrapApi(data);
     } catch (err) {

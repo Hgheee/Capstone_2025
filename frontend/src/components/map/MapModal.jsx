@@ -12,6 +12,21 @@ export default function MapModal({ isOpen, onClose, item }) {
   const [userLocation, setUserLocation] = useState(null);
   const [locationError, setLocationError] = useState(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [isMapReady, setIsMapReady] = useState(false); // ✅ 지도 렌더링 준비 상태
+
+  // 모달이 열릴 때 지도 렌더링 준비
+  useEffect(() => {
+    if (isOpen) {
+      // 모달이 완전히 열린 후 지도 렌더링 (DOM이 준비될 때까지 대기)
+      // ✅ 50ms로 단축 (더 빠른 반응)
+      const timer = setTimeout(() => {
+        setIsMapReady(true);
+      }, 50);
+      return () => clearTimeout(timer);
+    } else {
+      setIsMapReady(false); // 모달이 닫히면 지도도 제거
+    }
+  }, [isOpen]);
 
   // 사용자 현재 위치 가져오기
   useEffect(() => {
@@ -36,10 +51,11 @@ export default function MapModal({ isOpen, onClose, item }) {
           lng: position.coords.longitude,
         });
         setIsLoadingLocation(false);
-        console.log('✅ 사용자 위치 획득:', position.coords.latitude, position.coords.longitude);
       },
       (error) => {
-        console.error('위치 정보 가져오기 실패:', error);
+        if (import.meta.env.DEV) {
+          console.error('위치 정보 가져오기 실패:', error);
+        }
         setLocationError('위치 정보를 가져올 수 없습니다. 위치 권한을 확인해주세요.');
         setIsLoadingLocation(false);
       },
@@ -132,7 +148,17 @@ export default function MapModal({ isOpen, onClose, item }) {
             </div>
           )}
 
-          <NaverMap item={item} userLocation={userLocation} height="500px" />
+          {/* ✅ 지도가 준비되었을 때만 렌더링 */}
+          {isMapReady ? (
+            <NaverMap item={item} userLocation={userLocation} height="500px" />
+          ) : (
+            <div className="h-[500px] flex items-center justify-center bg-gray-100 rounded-lg">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-2"></div>
+                <p className="text-gray-600">지도 준비 중...</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 분실물 정보 */}
@@ -181,5 +207,6 @@ export default function MapModal({ isOpen, onClose, item }) {
     </div>
   );
 }
+
 
 
