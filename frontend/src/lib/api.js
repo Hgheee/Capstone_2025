@@ -2,13 +2,20 @@ import axios from "axios";
 
 // ✅ Axios 인스턴스 생성
 // baseURL은 /api 없이 설정 (모든 API 경로가 /api/로 시작하므로)
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8081";
+// 환경 변수에 /api가 포함되어 있으면 제거
+let baseUrlFromEnv = import.meta.env.VITE_API_BASE_URL || "http://localhost:8081";
+// 환경 변수에 /api가 포함되어 있으면 제거
+if (baseUrlFromEnv.endsWith('/api')) {
+  baseUrlFromEnv = baseUrlFromEnv.replace('/api', '');
+}
+const BASE_URL = baseUrlFromEnv;
 const IS_DEV = import.meta.env.DEV;
 
 // 개발 모드에서만 로그 출력
 if (IS_DEV) {
-  console.log("🔍 [API Config] BASE_URL:", BASE_URL);
-  console.log("🔍 [API Config] VITE_API_BASE_URL:", import.meta.env.VITE_API_BASE_URL);
+  console.log("🔍 [API Config] 원본 VITE_API_BASE_URL:", import.meta.env.VITE_API_BASE_URL);
+  console.log("🔍 [API Config] 최종 BASE_URL:", BASE_URL);
+  console.log("🔍 [API Config] 예상 전체 URL 예시:", `${BASE_URL}/api/lost-items/recent`);
 }
 
 export const api = axios.create({

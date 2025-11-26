@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { lostItemApi } from "../lib/api";
 import ItemCard from "../components/ui/ItemCard.jsx";
+import { debounce, addToSearchHistory, getSearchHistory } from "../utils/searchUtils";
 
 // 카테고리 옵션 정의
 const CATEGORIES = [
@@ -79,6 +80,8 @@ export default function Search() {
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [searchHistory, setSearchHistory] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // URL 쿼리 파라미터에서 초기 검색어 가져오기
   useEffect(() => {
@@ -88,10 +91,32 @@ export default function Search() {
     }
   }, [searchParams]);
 
+  // 검색 히스토리 로드
+  useEffect(() => {
+    setSearchHistory(getSearchHistory());
+  }, []);
+
+  // 디바운스된 검색 함수 (실시간 검색용)
+  const debouncedSearch = useCallback(
+    debounce((searchKeyword, page = 0) => {
+      performSearch(searchKeyword, page);
+    }, 500), // 500ms 대기
+    []
+  );
+
   // 검색 실행 함수
-  const performSearch = async (page = 0) => {
+  const performSearch = async (searchKeyword = keyword, page = 0) => {
     setLoading(true);
     setError(null);
+    
+    // searchKeyword가 문자열이 아니면 문자열로 변환
+    const searchText = typeof searchKeyword === 'string' ? searchKeyword : String(searchKeyword || '');
+    
+    // 검색어가 있으면 히스토리에 추가
+    if (searchText && searchText.trim()) {
+      addToSearchHistory(searchText.trim());
+      setSearchHistory(getSearchHistory());
+    }
     
     try {
       let response;
@@ -104,8 +129,8 @@ export default function Search() {
       };
 
       // 키워드가 있으면 추가
-      if (keyword.trim()) {
-        searchParams.keyword = keyword.trim();
+      if (searchText.trim()) {
+        searchParams.keyword = searchText.trim();
       }
 
       // 카테고리가 선택되었으면 추가
@@ -128,14 +153,14 @@ export default function Search() {
         regionQuery = selectedDistrict;
       }
 
-      if (regionQuery && !keyword && selectedCategory === "전체") {
+      if (regionQuery && !searchText && selectedCategory === "전체") {
         // 지역만 선택된 경우
         response = await lostItemApi.searchByRegion(regionQuery, searchParams);
       } else if (regionQuery) {
         // 지역과 다른 조건이 함께 있는 경우
-        const searchText = [keyword, regionQuery].filter(Boolean).join(" ");
-        response = await lostItemApi.searchFullText(searchText, searchParams);
-      } else if (Object.keys(searchParams).length > 3) {
+        const combinedSearchText = [searchText, regionQuery].filter(Boolean).join(" ");
+        response = await lostItemApi.searchFullText(combinedSearchText, searchParams);
+      } else if (Object.keys(searchParams).length > 3 || searchText.trim()) {
         // 키워드나 카테고리가 있는 경우 고급 검색 사용
         response = await lostItemApi.advancedSearch(searchParams);
       } else {
@@ -178,7 +203,13 @@ export default function Search() {
 
   // 컴포넌트 마운트 시 또는 검색어 변경 시 초기 데이터 로드
   useEffect(() => {
-    performSearch();
+    // 실시간 검색: 키워드가 변경되면 디바운스된 검색 실행
+    if (keyword.trim()) {
+      debouncedSearch(keyword, 0);
+    } else {
+      // 키워드가 비어있으면 전체 목록
+      performSearch("", 0);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keyword]);
 
@@ -191,7 +222,7 @@ export default function Search() {
   // 페이지 변경
   const handlePageChange = (newPage) => {
     if (newPage >= 0 && newPage < totalPages) {
-      performSearch(newPage);
+      performSearch(keyword, newPage); // ✅ keyword와 newPage를 올바르게 전달
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -210,14 +241,44 @@ export default function Search() {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             키워드 검색
           </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder="예: 지갑, 우산, 에어팟"
-              className="flex-1 border rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="relative flex gap-2">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={keyword}
+                onChange={(e) => {
+                  setKeyword(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                placeholder="예: 지갑, 우산, 에어팟"
+                className="w-full border rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              
+              {/* 검색 제안 드롭다운 */}
+              {showSuggestions && searchHistory.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                  {searchHistory
+                    .filter(term => term.toLowerCase().includes(keyword.toLowerCase()))
+                    .slice(0, 5)
+                    .map((term, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => {
+                          setKeyword(term);
+                          setShowSuggestions(false);
+                          performSearch(term, 0);
+                        }}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors"
+                      >
+                        <span className="text-gray-600">🔍</span> {term}
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
             <button
               type="submit"
               className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
@@ -365,7 +426,7 @@ export default function Search() {
             <>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {results.map((item) => (
-                  <ItemCard key={item.id} item={item} />
+                  <ItemCard key={item.id} item={item} searchKeyword={keyword} />
                 ))}
               </div>
 

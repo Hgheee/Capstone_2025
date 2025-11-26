@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import jakarta.persistence.PostLoad;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -116,6 +117,38 @@ public class LostItem {
     private String storageLocation;
 
     /**
+     * 위도 (latitude) - 매칭 알고리즘용
+     */
+    @Column(name = "latitude")
+    private Double latitude;
+
+    /**
+     * 경도 (longitude) - 매칭 알고리즘용
+     */
+    @Column(name = "longitude")
+    private Double longitude;
+
+    /**
+     * 분실물 타입 (LOST: 분실물, FOUND: 습득물)
+     * 매칭 알고리즘에서 LOST와 FOUND를 매칭하기 위해 사용
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "item_type", length = 10, nullable = true)
+    @Builder.Default
+    private ItemType itemType = ItemType.FOUND;
+    
+    /**
+     * 데이터베이스에서 엔티티를 로드한 후 실행되는 메서드
+     * itemType이 null이면 기본값 FOUND로 설정
+     */
+    @PostLoad
+    private void postLoad() {
+        if (this.itemType == null) {
+            this.itemType = ItemType.FOUND;
+        }
+    }
+
+    /**
      * 분실물 이미지 파일의 URL 경로
      */
     @Column(name = "image_path")
@@ -164,6 +197,16 @@ public class LostItem {
         USER,
         LOST112,
         SEOUL_LOST
+    }
+
+    /**
+     * 분실물 타입을 나타내는 열거형입니다.
+     * LOST: 분실물 (사용자가 잃어버린 물건)
+     * FOUND: 습득물 (사용자가 찾은 물건)
+     */
+    public enum ItemType {
+        LOST,   // 분실물
+        FOUND   // 습득물
     }
 
     /**

@@ -1,8 +1,11 @@
 package com.lostfound.capstonebackend.domain.lostitem;
 
 import com.lostfound.capstonebackend.common.dto.ApiResponse;
+import com.lostfound.capstonebackend.common.util.MatchingScoreUtil;
 import com.lostfound.capstonebackend.domain.lostitem.dto.LostItemRequest;
 import com.lostfound.capstonebackend.domain.lostitem.dto.LostItemResponse;
+import com.lostfound.capstonebackend.domain.lostitem.dto.MatchCandidateResponse;
+import com.lostfound.capstonebackend.domain.lostitem.service.LostItemMatchingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -30,6 +33,8 @@ import java.util.List;
 public class LostItemController {
 
     private final LostItemService lostItemService;
+    private final LostItemMatchingService matchingService;
+    private final LostItemRepository lostItemRepository;
 
     /**
      * 모든 분실물 목록을 페이지네이션하여 조회합니다.
@@ -387,5 +392,42 @@ public class LostItemController {
         }
 
         return Sort.by(orders);
+    }
+
+    /**
+     * 특정 분실물에 대한 매칭 후보를 조회합니다.
+     * LOST 타입의 분실물에 대해 FOUND 타입의 습득물 중 매칭 가능한 후보를 찾습니다.
+     * 
+     * @param id 분실물 ID (LOST 타입)
+     * @return 매칭 후보 리스트 (점수 내림차순, 최대 10개)
+     */
+    @GetMapping("/{id}/matches")
+    @Operation(summary = "매칭 후보 조회", description = "특정 분실물에 대한 매칭 가능한 습득물 후보를 조회합니다")
+    public ApiResponse<List<MatchCandidateResponse>> getMatchingCandidates(
+            @Parameter(description = "분실물 ID") @PathVariable Long id
+    ) {
+        var candidates = matchingService.findMatchingCandidates(id);
+        
+        // 분실물 엔티티 조회
+        LostItem lostItem = lostItemRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("분실물을 찾을 수 없습니다: " + id));
+        
+        List<MatchCandidateResponse> responses = candidates.stream()
+                .map(candidate -> {
+                    LostItem foundItem = candidate.getItem();
+                    
+                    return new MatchCandidateResponse(
+                            candidate.toResponse(),
+                            candidate.getScore(),
+                            MatchingScoreUtil.calculateDistanceScore(lostItem, foundItem),
+                            MatchingScoreUtil.calculateTimeScore(lostItem, foundItem),
+                            MatchingScoreUtil.calculateCategoryScore(lostItem, foundItem),
+                            MatchingScoreUtil.calculateTextScore(lostItem, foundItem),
+                            MatchingScoreUtil.calculateTagScore(lostItem, foundItem)
+                    );
+                })
+                .toList();
+        
+        return ApiResponse.ok(responses);
     }
 }

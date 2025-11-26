@@ -89,7 +89,10 @@ class LostItemControllerTest {
                 0,
                 null,
                 LocalDateTime.now(),
-                LocalDateTime.now()
+                LocalDateTime.now(),
+                "FOUND",  // itemType
+                null,     // latitude
+                null      // longitude
         );
     }
 

@@ -26,11 +26,36 @@ export default function AdminPage() {
   const fetchStats = async () => {
     try {
       setLoading(true);
+      
+      // 🔍 디버깅: 토큰 및 사용자 정보 확인
+      const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+      const userStr = localStorage.getItem("user");
+      const user = userStr ? JSON.parse(userStr) : null;
+      
+      console.log("🔍 [AdminPage] Token:", token ? "있음" : "없음");
+      console.log("🔍 [AdminPage] User:", user);
+      console.log("🔍 [AdminPage] User Role:", user?.role);
+      
+      if (!token) {
+        alert("로그인이 필요합니다. 로그인 페이지로 이동합니다.");
+        window.location.href = "/login";
+        return;
+      }
+      
+      if (user?.role !== "ADMIN") {
+        alert("관리자 권한이 필요합니다. 현재 권한: " + (user?.role || "없음"));
+        return;
+      }
+      
       const { data } = await api.get("/api/admin/stats");
       setStats(data.data);
     } catch (err) {
       console.error("통계 조회 실패:", err);
-      alert("통계 조회에 실패했습니다.");
+      if (err.response?.status === 403) {
+        alert("관리자 권한이 필요합니다. 로그인 상태와 권한을 확인해주세요.");
+      } else {
+        alert("통계 조회에 실패했습니다: " + (err.response?.data?.error?.message || err.message));
+      }
     } finally {
       setLoading(false);
     }
@@ -156,14 +181,38 @@ export default function AdminPage() {
 
     try {
       setLoading(true);
+      
+      // 🔍 디버깅: 토큰 및 사용자 정보 확인
+      const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+      const userStr = localStorage.getItem("user");
+      const user = userStr ? JSON.parse(userStr) : null;
+      
+      console.log("🔍 [AdminPage] Cleanup - Token:", token ? "있음" : "없음");
+      console.log("🔍 [AdminPage] Cleanup - User Role:", user?.role);
+      
+      if (!token) {
+        alert("로그인이 필요합니다. 로그인 페이지로 이동합니다.");
+        window.location.href = "/login";
+        return;
+      }
+      
+      if (user?.role !== "ADMIN") {
+        alert("관리자 권한이 필요합니다. 현재 권한: " + (user?.role || "없음"));
+        return;
+      }
+      
       const { data } = await api.post("/api/admin/cleanup-now");
       alert(data.data.message || "정리가 완료되었습니다!");
       fetchStats();
     } catch (err) {
       console.error("정리 실패:", err);
-      alert(
-        "정리에 실패했습니다: " + (err?.response?.data?.message || err.message)
-      );
+      if (err.response?.status === 403) {
+        alert("관리자 권한이 필요합니다. 로그인 상태와 권한을 확인해주세요.");
+      } else {
+        alert(
+          "정리에 실패했습니다: " + (err?.response?.data?.error?.message || err?.response?.data?.message || err.message)
+        );
+      }
     } finally {
       setLoading(false);
     }

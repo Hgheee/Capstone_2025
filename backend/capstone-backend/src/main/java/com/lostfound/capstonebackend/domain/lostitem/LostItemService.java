@@ -3,6 +3,7 @@ package com.lostfound.capstonebackend.domain.lostitem;
 import com.lostfound.capstonebackend.common.exception.BusinessException;
 import com.lostfound.capstonebackend.common.exception.ErrorCode;
 import com.lostfound.capstonebackend.common.util.RegionUtil;
+import com.lostfound.capstonebackend.common.util.SearchUtil;
 import com.lostfound.capstonebackend.domain.lostitem.dto.LostItemRequest;
 import com.lostfound.capstonebackend.domain.lostitem.dto.LostItemResponse;
 import com.lostfound.capstonebackend.domain.user.User;
@@ -16,9 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 분실물 관련 비즈니스 로직을 처리하는 서비스 클래스입니다.
@@ -187,8 +187,99 @@ public class LostItemService {
             return findAll(pageable);
         }
 
-        return lostItemRepository.findByKeyword(keyword.trim(), pageable)
-                .map(LostItemResponse::from);
+        // ✅ 개선된 검색: 유사도 기반 검색 사용
+        return searchByKeywordImproved(keyword.trim(), pageable);
+    }
+
+    /**
+     * 개선된 키워드 검색 (유사도 기반, 관련도 정렬)
+     * 제목, 설명, 카테고리, 색상, 위치에서 검색하고 관련도 순으로 정렬합니다.
+     * 
+     * @param keyword 검색 키워드
+     * @param pageable 페이지네이션 정보
+     * @return 관련도 순으로 정렬된 검색 결과
+     */
+    public Page<LostItemResponse> searchByKeywordImproved(String keyword, Pageable pageable) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return findAll(pageable);
+        }
+
+        String normalizedKeyword = SearchUtil.normalize(keyword);
+        List<String> expandedTerms = SearchUtil.expandSearchTerms(normalizedKeyword);
+        
+        log.debug("검색어 확장: {} -> {}", keyword, expandedTerms);
+
+        // 1. 먼저 기존 LIKE 검색으로 후보를 가져옴 (성능 최적화)
+        // 더 넓은 범위로 검색 (확장된 검색어 포함)
+        Page<LostItem> candidatePage = lostItemRepository.findByKeyword(normalizedKeyword, 
+                PageRequest.of(0, Math.min(1000, pageable.getPageSize() * 10))); // 더 많이 가져와서 필터링
+        
+        List<LostItem> candidates = candidatePage.getContent();
+        
+        // 2. 각 항목에 대해 관련도 점수 계산
+        Map<LostItem, Double> relevanceScores = new LinkedHashMap<>();
+        
+        for (LostItem item : candidates) {
+            double totalScore = 0.0;
+            
+            // 필드별 가중치 적용
+            totalScore += SearchUtil.calculateRelevance(
+                item.getTitle() != null ? item.getTitle() : "", 
+                normalizedKeyword, 1.0); // 제목: 가중치 1.0
+            
+            totalScore += SearchUtil.calculateRelevance(
+                item.getDescription() != null ? item.getDescription() : "", 
+                normalizedKeyword, 0.7); // 설명: 가중치 0.7
+            
+            totalScore += SearchUtil.calculateRelevance(
+                item.getCategory() != null ? item.getCategory() : "", 
+                normalizedKeyword, 0.8); // 카테고리: 가중치 0.8
+            
+            totalScore += SearchUtil.calculateRelevance(
+                item.getColor() != null ? item.getColor() : "", 
+                normalizedKeyword, 0.5); // 색상: 가중치 0.5
+            
+            totalScore += SearchUtil.calculateRelevance(
+                (item.getLocation() != null ? item.getLocation() : "") + 
+                " " + (item.getStorageLocation() != null ? item.getStorageLocation() : ""), 
+                normalizedKeyword, 0.6); // 위치: 가중치 0.6
+            
+            // 확장된 검색어로도 점수 계산 (더 낮은 가중치)
+            for (String expandedTerm : expandedTerms) {
+                if (!expandedTerm.equals(normalizedKeyword)) {
+                    totalScore += SearchUtil.calculateRelevance(
+                        item.getTitle() != null ? item.getTitle() : "", 
+                        expandedTerm, 0.3);
+                }
+            }
+            
+            if (totalScore > 0.0) {
+                relevanceScores.put(item, totalScore);
+            }
+        }
+        
+        // 3. 관련도 순으로 정렬
+        List<LostItem> sortedItems = relevanceScores.entrySet().stream()
+                .sorted(Map.Entry.<LostItem, Double>comparingByValue().reversed())
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+        
+        // 4. 페이지네이션 적용
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), sortedItems.size());
+        List<LostItem> pagedItems = sortedItems.subList(start, end);
+        
+        // 5. LostItemResponse로 변환
+        List<LostItemResponse> responses = pagedItems.stream()
+                .map(LostItemResponse::from)
+                .collect(Collectors.toList());
+        
+        // 6. Page 객체 생성
+        return new org.springframework.data.domain.PageImpl<>(
+                responses,
+                pageable,
+                sortedItems.size()
+        );
     }
 
     /**

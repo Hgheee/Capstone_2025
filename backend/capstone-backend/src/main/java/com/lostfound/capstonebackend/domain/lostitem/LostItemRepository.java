@@ -258,6 +258,24 @@ public interface LostItemRepository extends JpaRepository<LostItem, Long> {
     Page<LostItem> findByFullTextSearch(@Param("searchText") String searchText, Pageable pageable);
 
     /**
+     * 매칭 알고리즘용: FOUND 타입, 카테고리 일치, 시간 조건 충족하는 항목 조회
+     * @param itemType 분실물 타입 (FOUND)
+     * @param category 카테고리
+     * @param foundDate 기준 날짜 (이 날짜 이후의 습득물만)
+     * @return 매칭 후보 리스트
+     */
+    @Query("SELECT l FROM LostItem l WHERE " +
+           "l.itemType = :itemType AND " +
+           "l.category = :category AND " +
+           "(:foundDate IS NULL OR l.foundDate >= :foundDate) AND " +
+           "l.status != 'CLAIMED' AND l.status != 'EXPIRED'")
+    List<LostItem> findByItemTypeAndCategoryAndFoundDate(
+            @Param("itemType") LostItem.ItemType itemType,
+            @Param("category") String category,
+            @Param("foundDate") LocalDate foundDate
+    );
+
+    /**
      * 최고 인기 카테고리 TOP N 조회 - Pageable로 limit 처리
      * @param pageable 페이지네이션 정보 (PageRequest.of(0, limit) 형태로 사용)
      * @return [카테고리, 개수] 형태의 배열 리스트

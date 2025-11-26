@@ -1,7 +1,8 @@
 import { useState } from "react";
 import MapModal from "../map/MapModal";
+import HighlightText from "./HighlightText";
 
-export default function ItemCard({ item }) {
+export default function ItemCard({ item, searchKeyword = "" }) {
   const {
     title,
     description,
@@ -99,11 +100,15 @@ export default function ItemCard({ item }) {
         </div>
 
         {/* 제목 */}
-        <h3 className="font-semibold text-lg mb-2 line-clamp-1">{title}</h3>
+        <h3 className="font-semibold text-lg mb-2 line-clamp-1">
+          <HighlightText text={title} searchTerm={searchKeyword} />
+        </h3>
 
         {/* 설명 */}
         {description && (
-          <p className="text-sm text-gray-600 mb-3 line-clamp-2">{description}</p>
+          <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+            <HighlightText text={description} searchTerm={searchKeyword} />
+          </p>
         )}
 
         {/* 정보 */}

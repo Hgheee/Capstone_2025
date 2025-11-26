@@ -26,6 +26,9 @@ import java.time.LocalDateTime;
  * @param receivedDate    외부 시스템 기준 수령 일시
  * @param createdAt       생성 일시
  * @param updatedAt       수정 일시
+ * @param itemType        분실물 타입 (LOST: 분실물, FOUND: 습득물)
+ * @param latitude        위도 (매칭 알고리즘용)
+ * @param longitude       경도 (매칭 알고리즘용)
  */
 public record LostItemResponse(
         Long id,
@@ -45,7 +48,10 @@ public record LostItemResponse(
         Integer viewCount,
         LocalDateTime receivedDate,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        String itemType,
+        Double latitude,
+        Double longitude
 ) {
     /**
      * LostItem 엔티티 객체를 LostItemResponse DTO로 변환하는 정적 팩토리 메소드입니다.
@@ -71,7 +77,10 @@ public record LostItemResponse(
                 item.getViewCount(),
                 item.getReceivedDate(),
                 item.getCreatedAt(),
-                item.getUpdatedAt()
+                item.getUpdatedAt(),
+                item.getItemType() != null ? item.getItemType().name() : "FOUND", // 기본값 FOUND
+                item.getLatitude(),
+                item.getLongitude()
         );
     }
 }

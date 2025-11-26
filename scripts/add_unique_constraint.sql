@@ -4,7 +4,7 @@
 -- ================================================
 
 -- 1. 기존 중복 데이터 확인
-SELECT 
+SELECT
     external_id, 
     COUNT(*) as duplicate_count,
     datasource
@@ -27,6 +27,9 @@ ADD UNIQUE INDEX idx_unique_external_id (external_id);
 
 -- 4. 결과 확인
 SHOW INDEX FROM lost_item WHERE Key_name = 'idx_unique_external_id';
+
+
+
 
 
 

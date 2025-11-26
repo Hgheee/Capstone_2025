@@ -74,32 +74,33 @@ public class SecurityConfig {
                 // HTTP 요청에 대한 접근 권한을 설정합니다.
                 .authorizeHttpRequests(auth -> {
                     boolean isDev = Arrays.asList(environment.getActiveProfiles()).contains("dev");
-                    List<String> permitAll = new ArrayList<>(List.of(
+                    
+                    // ✅ 공개 API 경로 (인증 불필요)
+                    auth.requestMatchers(
                             "/",
                             "/api/health",
-                            "/api/auth/**",  // ✅ 모든 인증 관련 API 허용 (login, signup, check-email 등)
-                            "/api/lost-items/**",   // ✅ 분실물 조회 API는 공개
-                            "/api/admin/region-stats",  // ✅ 지역 통계는 공개
-                            "/api/admin/update-regions",  // ✅ 지역 업데이트는 공개 (임시)
-                            "/api/admin/import/lost112-by-region",  // ✅ LOST112 지역별 수집 (임시)
-                            "/api/admin/seoul/import",  // ✅ 서울교통공사 수집 (임시)
-                            "/actuator/**",  // ✅ Actuator 엔드포인트 허용 (개발/모니터링용)
+                            "/api/auth/**",  // 모든 인증 관련 API 허용 (login, signup, check-email 등)
+                            "/api/lost-items/**",   // ✅ 분실물 조회 API는 공개 (GET, POST 등 모든 메서드)
+                            "/api/admin/region-stats",  // 지역 통계는 공개
+                            "/api/admin/update-regions",  // 지역 업데이트는 공개 (임시)
+                            "/api/admin/import/lost112-by-region",  // LOST112 지역별 수집 (임시)
+                            "/api/admin/seoul/import",  // 서울교통공사 수집 (임시)
+                            "/actuator/**",  // Actuator 엔드포인트 허용 (개발/모니터링용)
                             "/favicon.ico",
                             "/error"
-                    ));
+                    ).permitAll();
+                    
                     // 개발(dev) 프로필일 경우 Swagger 관련 경로를 추가로 허용합니다.
                     if (isDev) {
-                        permitAll.addAll(List.of(
+                        auth.requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**"
-                        ));
+                        ).permitAll();
                     }
 
-                    // 설정된 경로들은 인증 없이 접근 허용 (OPTIONS 메서드 포함)
-                    auth.requestMatchers(permitAll.toArray(String[]::new)).permitAll()
-                        // 그 외 모든 요청은 인증이 필요함
-                        .anyRequest().authenticated();
+                    // 그 외 모든 요청은 인증이 필요함
+                    auth.anyRequest().authenticated();
                 })
 
                 // 직접 구현한 JwtAuthenticationFilter를 UsernamePasswordAuthenticationFilter 앞에 추가합니다.

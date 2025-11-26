@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import NaverMap from './NaverMap';
+import GoogleMap from './GoogleMap';
 
 /**
  * 지도를 표시하는 모달 컴포넌트
@@ -18,19 +18,25 @@ export default function MapModal({ isOpen, onClose, item }) {
   useEffect(() => {
     if (isOpen) {
       // 모달이 완전히 열린 후 지도 렌더링 (DOM이 준비될 때까지 대기)
-      // ✅ 50ms로 단축 (더 빠른 반응)
-      const timer = setTimeout(() => {
-        setIsMapReady(true);
-      }, 50);
-      return () => clearTimeout(timer);
+      // requestAnimationFrame을 사용하여 더 안정적으로 처리
+      const frameId = requestAnimationFrame(() => {
+        setTimeout(() => {
+          setIsMapReady(true);
+        }, 100); // DOM이 완전히 렌더링될 때까지 약간의 여유 시간
+      });
+      return () => {
+        cancelAnimationFrame(frameId);
+        setIsMapReady(false);
+      };
     } else {
       setIsMapReady(false); // 모달이 닫히면 지도도 제거
     }
   }, [isOpen]);
 
-  // 사용자 현재 위치 가져오기
+  // 사용자 현재 위치 가져오기 (비동기, 지도 표시를 막지 않음)
   useEffect(() => {
-    if (isOpen && !userLocation) {
+    if (isOpen && !userLocation && !locationError) {
+      // 지도 표시를 막지 않도록 비동기로 처리
       getUserLocation();
     }
   }, [isOpen]);
@@ -44,6 +50,7 @@ export default function MapModal({ isOpen, onClose, item }) {
     setIsLoadingLocation(true);
     setLocationError(null);
 
+    // 타임아웃을 짧게 설정하여 빠르게 실패 처리
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setUserLocation({
@@ -60,9 +67,9 @@ export default function MapModal({ isOpen, onClose, item }) {
         setIsLoadingLocation(false);
       },
       {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
+        enableHighAccuracy: false, // 정확도보다 속도 우선
+        timeout: 5000, // 5초로 단축
+        maximumAge: 60000, // 1분간 캐시 사용
       }
     );
   };
@@ -150,7 +157,7 @@ export default function MapModal({ isOpen, onClose, item }) {
 
           {/* ✅ 지도가 준비되었을 때만 렌더링 */}
           {isMapReady ? (
-            <NaverMap item={item} userLocation={userLocation} height="500px" />
+            <GoogleMap item={item} userLocation={userLocation} height="500px" />
           ) : (
             <div className="h-[500px] flex items-center justify-center bg-gray-100 rounded-lg">
               <div className="text-center">

@@ -102,9 +102,14 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrity(DataIntegrityViolationException e) {
-        log.error("DataIntegrityViolationException: {}", e.getMessage());
+        log.error("DataIntegrityViolationException: {}", e.getMessage(), e);
+        String detailedMessage = e.getMessage();
+        if (e.getCause() != null) {
+            detailedMessage += " | Cause: " + e.getCause().getMessage();
+        }
         return ResponseEntity.status(ErrorCode.DUPLICATE_RESOURCE.getStatus())
-                .body(ApiResponse.fail(ErrorCode.DUPLICATE_RESOURCE.getCode(), "데이터 제약조건 위반: 중복된 값이거나 필수 항목이 누락되었습니다."));
+                .body(ApiResponse.fail(ErrorCode.DUPLICATE_RESOURCE.getCode(), 
+                    "데이터 제약조건 위반: " + detailedMessage));
     }
 
     /**

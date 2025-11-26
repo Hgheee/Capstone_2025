@@ -2,17 +2,51 @@
  * 주소를 좌표로 변환하는 Geocoding 유틸리티
  */
 
-import { isNaverMapLoaded } from './naverMapLoader';
+import { isGoogleMapLoaded } from './googleMapLoader';
 import { getStationCoordinates, extractStationName } from './stationCoordinates';
 
 // ✅ Geocoding 결과 캐시 (주소 → 좌표)
 const geocodeCache = new Map();
 const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24시간
 
+// ✅ localStorage 키
+const STORAGE_KEY = 'geocode_cache';
+const MAX_STORAGE_SIZE = 100; // 최대 저장 개수
+
 /**
- * 캐시에서 좌표 가져오기
+ * localStorage에서 캐시 로드
+ */
+const loadCacheFromStorage = () => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const data = JSON.parse(stored);
+      const now = Date.now();
+      // 유효한 캐시만 메모리에 로드
+      Object.entries(data).forEach(([key, value]) => {
+        if (now - value.timestamp < CACHE_EXPIRY) {
+          geocodeCache.set(key, value);
+        }
+      });
+      if (import.meta.env.DEV && geocodeCache.size > 0) {
+        console.log(`💾 localStorage에서 ${geocodeCache.size}개 좌표 캐시 로드`);
+      }
+    }
+  } catch (error) {
+    console.warn('캐시 로드 실패:', error);
+  }
+};
+
+// 초기 로드
+if (typeof window !== 'undefined') {
+  loadCacheFromStorage();
+}
+
+/**
+ * 캐시에서 좌표 가져오기 (메모리 + localStorage)
  */
 const getCachedCoords = (address) => {
+  // 메모리 캐시 확인
   const cached = geocodeCache.get(address);
   if (cached && Date.now() - cached.timestamp < CACHE_EXPIRY) {
     if (import.meta.env.DEV) {
@@ -24,13 +58,35 @@ const getCachedCoords = (address) => {
 };
 
 /**
- * 좌표를 캐시에 저장
+ * 좌표를 캐시에 저장 (메모리 + localStorage)
  */
 const setCachedCoords = (address, coords) => {
-  geocodeCache.set(address, {
+  const cacheEntry = {
     coords,
     timestamp: Date.now(),
-  });
+  };
+  
+  // 메모리 캐시에 저장
+  geocodeCache.set(address, cacheEntry);
+  
+  // localStorage에 저장
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const data = stored ? JSON.parse(stored) : {};
+    data[address] = cacheEntry;
+    
+    // 최대 크기 제한
+    const keys = Object.keys(data);
+    if (keys.length > MAX_STORAGE_SIZE) {
+      // 오래된 항목 제거
+      const sorted = keys.sort((a, b) => data[a].timestamp - data[b].timestamp);
+      sorted.slice(0, keys.length - MAX_STORAGE_SIZE).forEach(key => delete data[key]);
+    }
+    
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.warn('캐시 저장 실패:', error);
+  }
 };
 
 /**
@@ -47,8 +103,8 @@ export const geocodeAddress = (address) => {
       return;
     }
 
-    if (!isNaverMapLoaded()) {
-      reject(new Error('네이버 지도 API가 로드되지 않았습니다.'));
+    if (!isGoogleMapLoaded()) {
+      reject(new Error('Google Maps API가 로드되지 않았습니다.'));
       return;
     }
 
@@ -57,36 +113,28 @@ export const geocodeAddress = (address) => {
       return;
     }
 
-    // 네이버 Geocoder 사용
-    naver.maps.Service.geocode(
-      {
-        query: address,
-      },
-      (status, response) => {
-        if (status === naver.maps.Service.Status.ERROR) {
-          reject(new Error('Geocoding 실패: 주소를 찾을 수 없습니다.'));
-          return;
-        }
+    // Google Geocoder 사용
+    const geocoder = new google.maps.Geocoder();
+    geocoder.geocode(
+      { address: address },
+      (results, status) => {
+        if (status === 'OK' && results && results.length > 0) {
+          const location = results[0].geometry.location;
+          const coords = {
+            lat: location.lat(),
+            lng: location.lng(),
+          };
 
-        if (response.v2.meta.totalCount === 0) {
+          // ✅ 캐시에 저장
+          setCachedCoords(address, coords);
+
+          if (import.meta.env.DEV) {
+            console.log(`✅ Geocoding 성공: ${address} → (${coords.lat}, ${coords.lng})`);
+          }
+          resolve(coords);
+        } else {
           reject(new Error(`주소를 찾을 수 없습니다: ${address}`));
-          return;
         }
-
-        // 첫 번째 결과 사용
-        const item = response.v2.addresses[0];
-        const coords = {
-          lat: parseFloat(item.y),
-          lng: parseFloat(item.x),
-        };
-
-      // ✅ 캐시에 저장
-      setCachedCoords(address, coords);
-
-      if (import.meta.env.DEV) {
-        console.log(`✅ Geocoding 성공: ${address} → (${coords.lat}, ${coords.lng})`);
-      }
-      resolve(coords);
       }
     );
   });
@@ -95,7 +143,7 @@ export const geocodeAddress = (address) => {
 /**
  * 역 이름에서 좌표를 추출합니다.
  * 1순위: 하드코딩된 역 좌표 사용
- * 2순위: 네이버 Geocoding API 사용
+ * 2순위: Google Geocoding API 사용
  * @param {string} stationName - 역 이름
  * @returns {Promise<{lat: number, lng: number}>}
  */
@@ -109,7 +157,7 @@ export const geocodeStation = async (stationName) => {
     return { lat: coords.lat, lng: coords.lng };
   }
 
-  // 2. 네이버 Geocoding API 시도
+  // 2. Google Geocoding API 시도
   // ✅ "서울"을 하드코딩하지 않고 원본 주소 그대로 사용
   // "부산역" → "부산역" 그대로 검색
   // "서울역" → "서울역" 그대로 검색
@@ -120,8 +168,11 @@ export const geocodeStation = async (stationName) => {
     query = `${query}역`;
   }
   
+  // 한국 주소이므로 "대한민국" 추가하여 정확도 향상
+  const koreanQuery = `${query}, 대한민국`;
+  
   try {
-    return await geocodeAddress(query);
+    return await geocodeAddress(koreanQuery);
     } catch (error) {
       if (import.meta.env.DEV) {
         console.warn(`역 이름으로 검색 실패: ${stationName}, 원본 주소로 재시도`);
@@ -142,11 +193,19 @@ export const geocodeStation = async (stationName) => {
  * 분실물 보관 위치에서 좌표를 추출합니다.
  * 우선순위:
  * 1. storageLocation, location, title에서 역 이름 추출 → 역 좌표 매핑
- * 2. 네이버 Geocoding API 사용
+ * 2. Google Geocoding API 사용
  * @param {Object} item - 분실물 아이템
  * @returns {Promise<{lat: number, lng: number}>}
  */
 export const geocodeLostItemLocation = async (item) => {
+  // ✅ 0. 좌표가 이미 있는 경우 즉시 반환 (가장 빠름)
+  if (item.latitude && item.longitude) {
+    if (import.meta.env.DEV) {
+      console.log('✅ 저장된 좌표 사용:', { lat: item.latitude, lng: item.longitude });
+    }
+    return { lat: item.latitude, lng: item.longitude };
+  }
+
   if (import.meta.env.DEV) {
     console.log('🔍 분실물 위치 정보:', {
       storageLocation: item.storageLocation,
@@ -179,7 +238,7 @@ export const geocodeLostItemLocation = async (item) => {
     }
   }
 
-  // 2. 역 좌표를 찾지 못한 경우, 네이버 Geocoding API 시도
+  // 2. 역 좌표를 찾지 못한 경우, Google Geocoding API 시도
   let address = item.storageLocation || item.location;
 
   if (!address || address.trim() === '') {
@@ -187,7 +246,7 @@ export const geocodeLostItemLocation = async (item) => {
   }
 
   if (import.meta.env.DEV) {
-    console.log(`🌐 네이버 Geocoding API 사용: ${address}`);
+    console.log(`🌐 Google Geocoding API 사용: ${address}`);
   }
 
   // "역"이 포함되어 있으면 역 검색 시도
@@ -201,17 +260,23 @@ export const geocodeLostItemLocation = async (item) => {
     }
   }
 
-  // 일반 주소 검색
+  // 일반 주소 검색 (한국 주소이므로 "대한민국" 추가)
+  const koreanAddress = address.includes('대한민국') ? address : `${address}, 대한민국`;
   try {
-    return await geocodeAddress(address);
+    return await geocodeAddress(koreanAddress);
   } catch (error) {
-    // 모든 방법 실패
-    throw new Error(
-      `주소를 찾을 수 없습니다.\n` +
-      `보관 위치: ${item.storageLocation || '정보 없음'}\n` +
-      `습득 장소: ${item.location || '정보 없음'}\n` +
-      `제목: ${item.title || '정보 없음'}`
-    );
+    // "대한민국" 없이 재시도
+    try {
+      return await geocodeAddress(address);
+    } catch (error2) {
+      // 모든 방법 실패
+      throw new Error(
+        `주소를 찾을 수 없습니다.\n` +
+        `보관 위치: ${item.storageLocation || '정보 없음'}\n` +
+        `습득 장소: ${item.location || '정보 없음'}\n` +
+        `제목: ${item.title || '정보 없음'}`
+      );
+    }
   }
 };
 

@@ -21,7 +21,7 @@ spring:
     # 🔥 핵심 설정: DB 초기화 문제 해결
     defer-datasource-initialization: true
     hibernate:
-      ddl-auto: none   # 개발 중엔 create-drop → update 로 변경 추천
+      ddl-auto: update   # ✅ 스키마 자동 업데이트 (개발 환경)
     show-sql: ${SHOW_SQL:true}
     properties:
       hibernate:
