@@ -221,6 +221,115 @@ public class UserService {
     }
 
     /**
+     * 아이디 찾기: 이름과 전화번호 또는 이메일로 아이디를 찾습니다.
+     * @param request 아이디 찾기 요청 (이름, 전화번호 또는 이메일)
+     * @return 찾은 아이디와 이메일 정보
+     * @throws BusinessException 사용자를 찾을 수 없는 경우
+     */
+    public FindUsernameResponse findUsername(FindUsernameRequest request) {
+        log.info("Finding username for name: {}", request.getName());
+        
+        String phoneOrEmail = request.getPhoneOrEmail().trim();
+        User user;
+        
+        // 이메일 형식인지 확인
+        if (phoneOrEmail.contains("@")) {
+            // 이메일로 검색
+            String normalizedEmail = phoneOrEmail.toLowerCase();
+            user = userRepository.findByNameAndEmail(request.getName(), normalizedEmail)
+                    .orElseThrow(() -> {
+                        log.warn("User not found - name: {}, email: {}", request.getName(), normalizedEmail);
+                        return new BusinessException(ErrorCode.USER_NOT_FOUND, "입력하신 정보와 일치하는 사용자를 찾을 수 없습니다.");
+                    });
+        } else {
+            // 전화번호로 검색
+            String normalizedPhone = normalizePhone(phoneOrEmail);
+            user = userRepository.findByNameAndPhone(request.getName(), normalizedPhone)
+                    .orElseThrow(() -> {
+                        log.warn("User not found - name: {}, phone: {}", request.getName(), normalizedPhone);
+                        return new BusinessException(ErrorCode.USER_NOT_FOUND, "입력하신 정보와 일치하는 사용자를 찾을 수 없습니다.");
+                    });
+        }
+        
+        log.info("Username found for name: {}, username: {}", request.getName(), user.getUsername());
+        return FindUsernameResponse.of(user.getUsername(), user.getEmail());
+    }
+
+    /**
+     * 비밀번호 찾기: 이메일로 임시 비밀번호를 발급합니다.
+     * @param request 비밀번호 찾기 요청 (이메일)
+     * @return 성공 메시지
+     * @throws BusinessException 사용자를 찾을 수 없는 경우
+     */
+    @Transactional
+    public String forgotPassword(ForgotPasswordRequest request) {
+        log.info("Processing forgot password request for email: {}", request.getEmail());
+        
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> {
+                    log.warn("Password reset failed - user not found: {}", request.getEmail());
+                    return new BusinessException(ErrorCode.USER_NOT_FOUND, "입력하신 이메일로 등록된 사용자를 찾을 수 없습니다.");
+                });
+        
+        // 임시 비밀번호 생성 (8자리 랜덤)
+        String tempPassword = generateTempPassword();
+        String encodedPassword = passwordEncoder.encode(tempPassword);
+        
+        // 비밀번호 업데이트
+        user.updatePassword(encodedPassword);
+        userRepository.save(user);
+        
+        log.info("Temporary password generated for email: {}", request.getEmail());
+        // TODO: 실제 운영 환경에서는 이메일로 임시 비밀번호를 전송해야 합니다.
+        // 현재는 로그에만 출력 (보안상 실제 운영에서는 이메일 전송 필요)
+        log.info("Temporary password for {}: {}", request.getEmail(), tempPassword);
+        
+        return "임시 비밀번호가 발급되었습니다. 이메일을 확인해주세요. (개발 환경에서는 로그를 확인하세요.)";
+    }
+
+    /**
+     * 비밀번호 재설정: 이메일과 새 비밀번호로 비밀번호를 재설정합니다.
+     * @param request 비밀번호 재설정 요청 (이메일, 새 비밀번호, 확인 비밀번호)
+     * @return 성공 메시지
+     * @throws BusinessException 사용자를 찾을 수 없거나 비밀번호가 일치하지 않는 경우
+     */
+    @Transactional
+    public String resetPassword(ResetPasswordRequest request) {
+        log.info("Processing password reset for email: {}", request.getEmail());
+        
+        if (!request.isPasswordMatched()) {
+            log.warn("Password reset failed - passwords do not match for email: {}", request.getEmail());
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "새 비밀번호와 확인 비밀번호가 일치하지 않습니다.");
+        }
+        
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> {
+                    log.warn("Password reset failed - user not found: {}", request.getEmail());
+                    return new BusinessException(ErrorCode.USER_NOT_FOUND, "입력하신 이메일로 등록된 사용자를 찾을 수 없습니다.");
+                });
+        
+        String encodedPassword = passwordEncoder.encode(request.getNewPassword());
+        user.updatePassword(encodedPassword);
+        userRepository.save(user);
+        
+        log.info("Password reset successful for email: {}", request.getEmail());
+        return "비밀번호가 성공적으로 재설정되었습니다.";
+    }
+
+    /**
+     * 임시 비밀번호 생성 (8자리 랜덤)
+     */
+    private String generateTempPassword() {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        StringBuilder sb = new StringBuilder();
+        java.util.Random random = new java.util.Random();
+        for (int i = 0; i < 8; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
+    }
+
+    /**
      * 전화번호 정규화:
      * - 입력이 null/빈문자면 그대로 반환(선택 필드 대응)
      * - 하이픈 유무 관계없이 "010-XXXX-XXXX" / "02-XXXX-XXXX" 포맷으로 변환

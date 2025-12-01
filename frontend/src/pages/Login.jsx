@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function Login() {
@@ -87,14 +87,20 @@ export default function Login() {
             />
           </div>
 
-          {/* 비밀번호 찾기 */}
-          <div className="text-right">
-            <button
-              type="button"
-              className="text-[18px] text-[#8B8B8B] hover:underline"
+          {/* 아이디/비밀번호 찾기 */}
+          <div className="flex justify-center gap-4 pt-4">
+            <Link
+              to="/find-username"
+              className="px-6 py-3 text-[18px] text-[#8B8B8B] border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors"
             >
-              비밀번호를 잊으셨나요?
-            </button>
+              아이디 찾기
+            </Link>
+            <Link
+              to="/forgot-password"
+              className="px-6 py-3 text-[18px] text-[#8B8B8B] border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors"
+            >
+              비밀번호 찾기
+            </Link>
           </div>
 
           {/* 로그인 버튼 */}

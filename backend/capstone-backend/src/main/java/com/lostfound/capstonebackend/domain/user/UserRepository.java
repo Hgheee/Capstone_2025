@@ -62,4 +62,22 @@ public interface UserRepository extends JpaRepository<User, Long> {
      */
     @Query("SELECT u FROM User u WHERE u.name LIKE %:name%")
     java.util.List<User> findByNameContaining(@Param("name") String name);
+
+    /**
+     * 이름과 전화번호로 사용자 조회 (아이디 찾기용)
+     * @param name 이름
+     * @param phone 전화번호
+     * @return 해당 조건의 사용자 (존재하지 않으면 Optional.empty())
+     */
+    @Query("SELECT u FROM User u WHERE u.name = :name AND u.phone = :phone")
+    Optional<User> findByNameAndPhone(@Param("name") String name, @Param("phone") String phone);
+
+    /**
+     * 이름과 이메일로 사용자 조회 (아이디 찾기용)
+     * @param name 이름
+     * @param email 이메일
+     * @return 해당 조건의 사용자 (존재하지 않으면 Optional.empty())
+     */
+    @Query("SELECT u FROM User u WHERE u.name = :name AND u.email = :email")
+    Optional<User> findByNameAndEmail(@Param("name") String name, @Param("email") String email);
 }

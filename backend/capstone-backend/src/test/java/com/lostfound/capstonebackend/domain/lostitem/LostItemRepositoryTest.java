@@ -98,7 +98,7 @@ class LostItemRepositoryTest {
         persistItem("노트", "공책", "서울", "문구", LostItem.Status.FOUND, LocalDate.of(2024, 1, 1));
 
         // When
-        var page = lostItemRepository.findByComplexSearch("노트", "전자기기", LostItem.Status.FOUND,
+        var page = lostItemRepository.findByComplexSearch("노트", "전자기기", LostItem.Status.FOUND, null,
                 LocalDate.of(2023, 12, 1), LocalDate.of(2024, 12, 31), PageRequest.of(0, 10));
 
         // Then

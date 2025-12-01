@@ -226,7 +226,7 @@ class LostItemControllerTest {
     void advancedSearch() throws Exception {
         // Given
         Page<LostItemResponse> page = new PageImpl<>(List.of(sampleResponse(3L, "노트북")));
-        given(lostItemService.searchComplex(eq("노트북"), eq("전자제품"), eq("FOUND"), any(), any(), any(Pageable.class)))
+        given(lostItemService.searchComplex(eq("노트북"), eq("전자제품"), eq("FOUND"), any(), any(), any(), any(Pageable.class)))
                 .willReturn(page);
 
         // When & Then

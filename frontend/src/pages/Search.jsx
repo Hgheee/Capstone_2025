@@ -105,7 +105,7 @@ export default function Search() {
   );
 
   // 검색 실행 함수
-  const performSearch = async (searchKeyword = keyword, page = 0) => {
+  const performSearch = async (searchKeyword = keyword, page = 0, categoryOverride = null) => {
     setLoading(true);
     setError(null);
     
@@ -133,9 +133,10 @@ export default function Search() {
         searchParams.keyword = searchText.trim();
       }
 
-      // 카테고리가 선택되었으면 추가
-      if (selectedCategory !== "전체") {
-        searchParams.category = selectedCategory;
+      // 카테고리가 선택되었으면 추가 (categoryOverride가 있으면 우선 사용)
+      const categoryToUse = categoryOverride !== null ? categoryOverride : selectedCategory;
+      if (categoryToUse && categoryToUse !== "전체") {
+        searchParams.category = categoryToUse;
       }
 
       // 상태가 선택되었으면 추가
@@ -153,15 +154,17 @@ export default function Search() {
         regionQuery = selectedDistrict;
       }
 
-      if (regionQuery && !searchText && selectedCategory === "전체") {
+      // 지역 파라미터 추가
+      if (regionQuery) {
+        searchParams.region = regionQuery;
+      }
+
+      // 검색 조건에 따라 적절한 API 선택
+      if (regionQuery && !searchText && categoryToUse === "전체" && !selectedStatus) {
         // 지역만 선택된 경우
         response = await lostItemApi.searchByRegion(regionQuery, searchParams);
-      } else if (regionQuery) {
-        // 지역과 다른 조건이 함께 있는 경우
-        const combinedSearchText = [searchText, regionQuery].filter(Boolean).join(" ");
-        response = await lostItemApi.searchFullText(combinedSearchText, searchParams);
-      } else if (Object.keys(searchParams).length > 3 || searchText.trim()) {
-        // 키워드나 카테고리가 있는 경우 고급 검색 사용
+      } else if (regionQuery || (categoryToUse && categoryToUse !== "전체") || selectedStatus || searchText.trim()) {
+        // 지역, 카테고리, 상태, 키워드 중 하나라도 있으면 고급 검색 사용
         response = await lostItemApi.advancedSearch(searchParams);
       } else {
         // 아무 조건도 없으면 전체 목록
@@ -216,7 +219,8 @@ export default function Search() {
   // 검색 버튼 클릭 또는 폼 제출
   const handleSubmit = (e) => {
     e.preventDefault();
-    performSearch(0);
+    setCurrentPage(0);
+    performSearch(keyword, 0);
   };
 
   // 페이지 변경
@@ -298,9 +302,12 @@ export default function Search() {
               <button
                 key={category}
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   setSelectedCategory(category);
                   setCurrentPage(0);
+                  // 카테고리 선택 시 자동 검색 실행 (카테고리만 선택해도 검색)
+                  // categoryOverride를 사용하여 최신 카테고리 값 전달
+                  await performSearch("", 0, category);
                 }}
                 className={`px-4 py-2 rounded-md border transition-colors ${
                   selectedCategory === category
@@ -324,9 +331,11 @@ export default function Search() {
               <button
                 key={status.label}
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   setSelectedStatus(status.value);
                   setCurrentPage(0);
+                  // 상태 선택 시 자동 검색 실행
+                  await performSearch(keyword || "", 0);
                 }}
                 className={`px-4 py-2 rounded-md border transition-colors ${
                   selectedStatus === status.value

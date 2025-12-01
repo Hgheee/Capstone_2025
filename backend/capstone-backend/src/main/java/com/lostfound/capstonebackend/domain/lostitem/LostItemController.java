@@ -169,6 +169,7 @@ public class LostItemController {
      * @param keyword    검색 키워드
      * @param category   카테고리
      * @param status     분실물 상태
+     * @param region     지역명
      * @param fromDate   검색 시작일
      * @param toDate     검색 종료일
      * @param page       페이지 번호
@@ -177,11 +178,12 @@ public class LostItemController {
      * @return 검색 조건에 맞는 분실물 목록 페이지가 포함된 ApiResponse
      */
     @GetMapping("/search/advanced")
-    @Operation(summary = "고급 검색", description = "키워드, 카테고리, 상태, 기간을 조합한 복합 검색")
+    @Operation(summary = "고급 검색", description = "키워드, 카테고리, 상태, 지역, 기간을 조합한 복합 검색")
     public ApiResponse<Page<LostItemResponse>> advancedSearch(
             @Parameter(description = "검색 키워드") @RequestParam(required = false) String keyword,
             @Parameter(description = "카테고리") @RequestParam(required = false) String category,
             @Parameter(description = "상태 (FOUND, CLAIMED, EXPIRED)") @RequestParam(required = false) String status,
+            @Parameter(description = "지역명") @RequestParam(required = false) String region,
             @Parameter(description = "검색 시작일 (yyyy-MM-dd)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @Parameter(description = "검색 종료일 (yyyy-MM-dd)") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(name = "page", defaultValue = "0") int page,
@@ -190,7 +192,7 @@ public class LostItemController {
     ) {
         Sort sortSpec = parseSort(sort);
         Pageable pageable = PageRequest.of(page, size, sortSpec);
-        return ApiResponse.ok(lostItemService.searchComplex(keyword, category, status, fromDate, toDate, pageable));
+        return ApiResponse.ok(lostItemService.searchComplex(keyword, category, status, region, fromDate, toDate, pageable));
     }
 
     /**

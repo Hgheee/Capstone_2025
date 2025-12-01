@@ -29,9 +29,6 @@ export default function Header() {
               <NavLink to="/search" className={linkCls}>
                 검색
               </NavLink>
-              <NavLink to="/report" className={linkCls}>
-                분실물 신고
-              </NavLink>
               <NavLink to="/mypage" className={linkCls}>
                 마이페이지
               </NavLink>

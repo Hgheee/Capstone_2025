@@ -112,6 +112,7 @@ public interface LostItemRepository extends JpaRepository<LostItem, Long> {
      * @param keyword 제목 또는 설명에 포함될 검색 키워드
      * @param category 필터링할 카테고리
      * @param status 필터링할 분실물 상태
+     * @param region 지역명 (location, storageLocation, region 필드에서 검색)
      * @param fromDate 검색 시작일 (습득일 기준)
      * @param toDate 검색 종료일 (습득일 기준)
      * @param pageable 페이지네이션 정보
@@ -119,16 +120,27 @@ public interface LostItemRepository extends JpaRepository<LostItem, Long> {
      */
     @Query("SELECT l FROM LostItem l WHERE " +
             "(:keyword IS NULL OR l.title LIKE CONCAT('%', :keyword, '%') OR l.description LIKE CONCAT('%', :keyword, '%')) AND " +
-            "(:category IS NULL OR l.category = :category) AND " +
+            "(:category IS NULL OR l.category = :category OR l.category LIKE CONCAT('%', :category, '%')) AND " +
             "(:status IS NULL OR l.status = :status) AND " +
+            "(:region IS NULL OR l.region LIKE CONCAT('%', :region, '%') OR l.location LIKE CONCAT('%', :region, '%') OR l.storageLocation LIKE CONCAT('%', :region, '%')) AND " +
             "(:fromDate IS NULL OR l.foundDate >= :fromDate) AND " +
             "(:toDate IS NULL OR l.foundDate <= :toDate)")
     Page<LostItem> findByComplexSearch(@Param("keyword") String keyword,
                                        @Param("category") String category,
                                        @Param("status") LostItem.Status status,
+                                       @Param("region") String region,
                                        @Param("fromDate") LocalDate fromDate,
                                        @Param("toDate") LocalDate toDate,
                                        Pageable pageable);
+
+    /**
+     * 여러 카테고리로 분실물을 검색합니다.
+     * @param categories 검색할 카테고리 목록
+     * @param pageable 페이지네이션 정보
+     * @return 검색 조건에 맞는 분실물 목록 페이지
+     */
+    @Query("SELECT l FROM LostItem l WHERE l.category IN :categories")
+    Page<LostItem> findByCategoryIn(@Param("categories") List<String> categories, Pageable pageable);
 
     /**
      * 최근에 등록된 분실물 상위 10개를 조회합니다. (메인 페이지용)

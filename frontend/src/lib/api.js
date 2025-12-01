@@ -86,6 +86,15 @@ export const authApi = {
   signup: (payload) => api.post("/api/auth/signup", payload),
   login: (payload) => api.post("/api/auth/login", payload),
   logout: () => api.post("/api/auth/logout"),
+  
+  // 아이디 찾기
+  findUsername: (data) => api.post("/api/auth/find-username", data),
+  
+  // 비밀번호 찾기
+  forgotPassword: (data) => api.post("/api/auth/forgot-password", data),
+  
+  // 비밀번호 재설정
+  resetPassword: (data) => api.post("/api/auth/reset-password", data),
 };
 
 // 분실물 API

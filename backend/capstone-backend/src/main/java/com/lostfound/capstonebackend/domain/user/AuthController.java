@@ -193,6 +193,48 @@ public class AuthController {
     }
 
     /**
+     * 아이디 찾기: 이름과 전화번호 또는 이메일로 아이디를 찾습니다.
+     * @param request 아이디 찾기 요청 (이름, 전화번호 또는 이메일)
+     * @return 찾은 아이디 정보가 포함된 ApiResponse
+     */
+    @PostMapping("/find-username")
+    @Operation(summary = "아이디 찾기", description = "이름과 전화번호 또는 이메일로 아이디를 찾습니다.")
+    public ResponseEntity<ApiResponse<FindUsernameResponse>> findUsername(@Valid @RequestBody FindUsernameRequest request) {
+        log.info("POST /api/auth/find-username - name: {}", request.getName());
+        FindUsernameResponse response = userService.findUsername(request);
+        log.info("Username found for name: {}", request.getName());
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    /**
+     * 비밀번호 찾기: 이메일로 임시 비밀번호를 발급합니다.
+     * @param request 비밀번호 찾기 요청 (이메일)
+     * @return 성공 메시지가 포함된 ApiResponse
+     */
+    @PostMapping("/forgot-password")
+    @Operation(summary = "비밀번호 찾기", description = "이메일로 임시 비밀번호를 발급합니다.")
+    public ResponseEntity<ApiResponse<String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        log.info("POST /api/auth/forgot-password - email: {}", request.getEmail());
+        String message = userService.forgotPassword(request);
+        log.info("Temporary password generated for email: {}", request.getEmail());
+        return ResponseEntity.ok(ApiResponse.ok(message));
+    }
+
+    /**
+     * 비밀번호 재설정: 이메일과 새 비밀번호로 비밀번호를 재설정합니다.
+     * @param request 비밀번호 재설정 요청 (이메일, 새 비밀번호, 확인 비밀번호)
+     * @return 성공 메시지가 포함된 ApiResponse
+     */
+    @PostMapping("/reset-password")
+    @Operation(summary = "비밀번호 재설정", description = "이메일과 새 비밀번호로 비밀번호를 재설정합니다.")
+    public ResponseEntity<ApiResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        log.info("POST /api/auth/reset-password - email: {}", request.getEmail());
+        String message = userService.resetPassword(request);
+        log.info("Password reset successful for email: {}", request.getEmail());
+        return ResponseEntity.ok(ApiResponse.ok(message));
+    }
+
+    /**
      * SecurityContextHolder에서 현재 인증된 사용자의 이메일(principal의 name)을 가져옵니다.
      * @return 인증된 사용자의 이메일 문자열
      * @throws BusinessException 사용자가 인증되지 않았거나 익명 사용자인 경우

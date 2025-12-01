@@ -11,6 +11,9 @@ import Register from "./pages/Register.jsx";
 import MyPage from "./pages/MyPage.jsx";
 import AdminPage from "./pages/AdminPage.jsx";
 import NotFound from "./pages/NotFound.jsx";
+import FindUsername from "./pages/FindUsername.jsx";
+import ForgotPassword from "./pages/ForgotPassword.jsx";
+import ResetPassword from "./pages/ResetPassword.jsx";
 
 import ProtectedRoute from "./components/routing/ProtectedRoute.jsx";
 import AdminRoute from "./components/routing/AdminRoute.jsx";
@@ -27,6 +30,9 @@ export default function App() {
         <Route path="/search" element={<Search />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/find-username" element={<FindUsername />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/*보호 라우트 */}
         <Route element={<ProtectedRoute />}>

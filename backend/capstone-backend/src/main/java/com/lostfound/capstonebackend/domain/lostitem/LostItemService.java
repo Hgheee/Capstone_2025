@@ -2,6 +2,7 @@ package com.lostfound.capstonebackend.domain.lostitem;
 
 import com.lostfound.capstonebackend.common.exception.BusinessException;
 import com.lostfound.capstonebackend.common.exception.ErrorCode;
+import com.lostfound.capstonebackend.common.util.CategoryUtil;
 import com.lostfound.capstonebackend.common.util.RegionUtil;
 import com.lostfound.capstonebackend.common.util.SearchUtil;
 import com.lostfound.capstonebackend.domain.lostitem.dto.LostItemRequest;
@@ -287,12 +288,13 @@ public class LostItemService {
      * @param keyword 검색 키워드 (선택 사항)
      * @param category 카테고리 (선택 사항)
      * @param status 분실물 상태 (선택 사항)
+     * @param region 지역명 (선택 사항)
      * @param fromDate 검색 시작일 (선택 사항)
      * @param toDate 검색 종료일 (선택 사항)
      * @param pageable 페이지네이션 정보
      * @return 검색된 분실물 목록 페이지
      */
-    public Page<LostItemResponse> searchComplex(String keyword, String category, String status,
+    public Page<LostItemResponse> searchComplex(String keyword, String category, String status, String region,
                                               LocalDate fromDate, LocalDate toDate, Pageable pageable) {
         LostItem.Status statusEnum = null;
         if (status != null && !status.trim().isEmpty()) {
@@ -303,10 +305,20 @@ public class LostItemService {
             }
         }
 
+        // 카테고리 검색: LIKE 검색을 사용하므로 원본 카테고리로 검색하면 매핑된 카테고리도 찾을 수 있음
+        // 예: "지갑"을 검색하면 "가방/지갑", "지갑", "WALLET" 등이 모두 검색됨
+        String categoryToSearch = null;
+        if (category != null && !category.trim().isEmpty() && !"전체".equals(category.trim())) {
+            categoryToSearch = category.trim();
+            List<String> backendCategories = CategoryUtil.getBackendCategories(category.trim());
+            log.info("카테고리 검색: '{}' (매핑된 카테고리: {})", categoryToSearch, backendCategories);
+        }
+
         return lostItemRepository.findByComplexSearch(
                 keyword != null && !keyword.trim().isEmpty() ? keyword.trim() : null,
-                category != null && !category.trim().isEmpty() ? category.trim() : null,
+                categoryToSearch,
                 statusEnum,
+                region != null && !region.trim().isEmpty() ? region.trim() : null,
                 fromDate,
                 toDate,
                 pageable
